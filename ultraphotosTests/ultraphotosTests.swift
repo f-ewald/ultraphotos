@@ -561,4 +561,34 @@ struct PhotoGridViewModelTests {
         )
         #expect(result == nil)
     }
+
+    // MARK: - exportMenuTitle tests
+
+    @Test func exportMenuTitleNoSelection() {
+        #expect(PhotoGridViewModel.exportMenuTitle(photoCount: 0, videoCount: 0) == "Export")
+    }
+
+    @Test func exportMenuTitleOnePhoto() {
+        #expect(PhotoGridViewModel.exportMenuTitle(photoCount: 1, videoCount: 0) == "Export 1 Photo")
+    }
+
+    @Test func exportMenuTitleMultiplePhotos() {
+        #expect(PhotoGridViewModel.exportMenuTitle(photoCount: 3, videoCount: 0) == "Export 3 Photos")
+    }
+
+    @Test func exportMenuTitleOneVideo() {
+        #expect(PhotoGridViewModel.exportMenuTitle(photoCount: 0, videoCount: 1) == "Export 1 Video")
+    }
+
+    @Test func exportMenuTitleMultipleVideos() {
+        #expect(PhotoGridViewModel.exportMenuTitle(photoCount: 0, videoCount: 5) == "Export 5 Videos")
+    }
+
+    @Test func exportMenuTitleMixed() {
+        #expect(PhotoGridViewModel.exportMenuTitle(photoCount: 2, videoCount: 3) == "Export 2 Photos and 3 Videos")
+    }
+
+    @Test func exportMenuTitleMixedSingular() {
+        #expect(PhotoGridViewModel.exportMenuTitle(photoCount: 1, videoCount: 1) == "Export 1 Photo and 1 Video")
+    }
 }

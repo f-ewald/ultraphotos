@@ -8,6 +8,25 @@
 import SwiftData
 import SwiftUI
 
+struct FocusedExportTitleKey: FocusedValueKey {
+    typealias Value = String
+}
+
+struct FocusedExportEnabledKey: FocusedValueKey {
+    typealias Value = Bool
+}
+
+extension FocusedValues {
+    var exportMenuTitle: String? {
+        get { self[FocusedExportTitleKey.self] }
+        set { self[FocusedExportTitleKey.self] = newValue }
+    }
+    var exportEnabled: Bool? {
+        get { self[FocusedExportEnabledKey.self] }
+        set { self[FocusedExportEnabledKey.self] = newValue }
+    }
+}
+
 struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
     @State private var viewModel = PhotoGridViewModel()
@@ -83,6 +102,8 @@ struct ContentView: View {
                 }
             }
         }
+        .focusedSceneValue(\.exportMenuTitle, viewModel.exportTitle)
+        .focusedSceneValue(\.exportEnabled, !viewModel.selectedAssets.isEmpty)
         .safeAreaInset(edge: .bottom) {
             if viewModel.authorizationState == .authorized || viewModel.authorizationState == .limited {
                 VStack(spacing: 0) {

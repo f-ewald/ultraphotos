@@ -339,6 +339,30 @@ final class PhotoGridViewModel {
         return selectedIdentifiers.intersection(visibleIDs).count
     }
 
+    var selectedAssets: [PHAsset] {
+        guard !selectedIdentifiers.isEmpty else { return [] }
+        return filteredAssets.filter { selectedIdentifiers.contains($0.localIdentifier) }
+    }
+
+    var exportTitle: String {
+        let photoCount = selectedAssets.filter { $0.mediaType == .image }.count
+        let videoCount = selectedAssets.filter { $0.mediaType == .video }.count
+        return Self.exportMenuTitle(photoCount: photoCount, videoCount: videoCount)
+    }
+
+    static func exportMenuTitle(photoCount: Int, videoCount: Int) -> String {
+        switch (photoCount, videoCount) {
+        case (0, 0):
+            return "Export"
+        case (let p, 0):
+            return "Export \(p) \(p == 1 ? "Photo" : "Photos")"
+        case (0, let v):
+            return "Export \(v) \(v == 1 ? "Video" : "Videos")"
+        case (let p, let v):
+            return "Export \(p) \(p == 1 ? "Photo" : "Photos") and \(v) \(v == 1 ? "Video" : "Videos")"
+        }
+    }
+
     var filteredAssets: [PHAsset] {
         let filtered: [PHAsset]
         switch mediaFilter {
