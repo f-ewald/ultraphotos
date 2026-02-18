@@ -6,54 +6,147 @@
 //
 
 import SwiftUI
-import SwiftData
 
 struct ContentView: View {
-    @Environment(\.modelContext) private var modelContext
-    @Query private var items: [Item]
+    @State private var viewModel = PhotoGridViewModel()
+    @State private var thumbnailSize: CGFloat = 150
+
+    private var columns: [GridItem] {
+        [GridItem(.adaptive(minimum: thumbnailSize, maximum: thumbnailSize + 50))]
+    }
 
     var body: some View {
-        NavigationSplitView {
-            List {
-                ForEach(items) { item in
-                    NavigationLink {
-                        Text("Item at \(item.timestamp, format: Date.FormatStyle(date: .numeric, time: .standard))")
-                    } label: {
-                        Text(item.timestamp, format: Date.FormatStyle(date: .numeric, time: .standard))
-                    }
+        NavigationStack {
+            Group {
+                switch viewModel.authorizationState {
+                case .notDetermined:
+                    promptView
+                case .authorized, .limited:
+                    gridView
+                case .denied:
+                    deniedView
+                case .restricted:
+                    restrictedView
                 }
-                .onDelete(perform: deleteItems)
             }
-            .navigationSplitViewColumnWidth(min: 180, ideal: 200)
+            .navigationTitle("UltraPhotos")
             .toolbar {
-                ToolbarItem {
-                    Button(action: addItem) {
-                        Label("Add Item", systemImage: "plus")
+                if viewModel.authorizationState == .authorized || viewModel.authorizationState == .limited {
+                    ToolbarItem {
+                        HStack(spacing: 4) {
+                            Image(systemName: "photo")
+                                .imageScale(.small)
+                            Slider(value: $thumbnailSize, in: 60...300)
+                                .frame(width: 120)
+                            Image(systemName: "photo")
+                                .imageScale(.large)
+                        }
                     }
                 }
             }
-        } detail: {
-            Text("Select an item")
         }
-    }
-
-    private func addItem() {
-        withAnimation {
-            let newItem = Item(timestamp: Date())
-            modelContext.insert(newItem)
-        }
-    }
-
-    private func deleteItems(offsets: IndexSet) {
-        withAnimation {
-            for index in offsets {
-                modelContext.delete(items[index])
+        .safeAreaInset(edge: .bottom) {
+            if viewModel.authorizationState == .authorized || viewModel.authorizationState == .limited {
+                VStack(spacing: 0) {
+                    Divider()
+                    HStack {
+                        Spacer()
+                        Text("\(viewModel.assets.count) items")
+                            .foregroundStyle(.secondary)
+                            .font(.callout)
+                    }
+                    .padding(.horizontal)
+                    .padding(.vertical, 6)
+                }
+                .background(.bar)
             }
         }
+        .task {
+            viewModel.checkAuthorizationStatus()
+            if viewModel.authorizationState == .notDetermined {
+                await viewModel.requestAuthorization()
+            } else if viewModel.authorizationState == .authorized || viewModel.authorizationState == .limited {
+                await viewModel.fetchAssets()
+            }
+        }
+    }
+
+    private var promptView: some View {
+        VStack(spacing: 16) {
+            Image(systemName: "photo.on.rectangle.angled")
+                .font(.system(size: 48))
+                .foregroundStyle(.secondary)
+            Text("UltraPhotos needs access to your Photos library.")
+                .font(.headline)
+            Text("Grant access to view and analyze your photo metadata.")
+                .foregroundStyle(.secondary)
+            Button("Grant Access") {
+                Task {
+                    await viewModel.requestAuthorization()
+                }
+            }
+            .buttonStyle(.borderedProminent)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private var gridView: some View {
+        ScrollView {
+            if viewModel.isLoading {
+                ProgressView("Loading photos...")
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .padding(.top, 100)
+            } else if viewModel.assets.isEmpty {
+                Text("No photos or videos found.")
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .padding(.top, 100)
+            } else {
+                LazyVGrid(columns: columns, spacing: 4) {
+                    ForEach(viewModel.assets, id: \.localIdentifier) { asset in
+                        PhotoThumbnailView(asset: asset, viewModel: viewModel, size: thumbnailSize)
+                    }
+                }
+                .padding(4)
+            }
+        }
+    }
+
+    private var deniedView: some View {
+        VStack(spacing: 16) {
+            Image(systemName: "lock.shield")
+                .font(.system(size: 48))
+                .foregroundStyle(.secondary)
+            Text("Photos Access Denied")
+                .font(.headline)
+            Text("Open System Settings to grant UltraPhotos access to your Photos library.")
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+            Button("Open System Settings") {
+                if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Photos") {
+                    NSWorkspace.shared.open(url)
+                }
+            }
+            .buttonStyle(.borderedProminent)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private var restrictedView: some View {
+        VStack(spacing: 16) {
+            Image(systemName: "exclamationmark.triangle")
+                .font(.system(size: 48))
+                .foregroundStyle(.secondary)
+            Text("Photos Access Restricted")
+                .font(.headline)
+            Text("Photo library access is restricted on this device. This may be due to parental controls or device management.")
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 
 #Preview {
     ContentView()
-        .modelContainer(for: Item.self, inMemory: true)
 }
