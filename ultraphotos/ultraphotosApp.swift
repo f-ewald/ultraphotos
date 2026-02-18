@@ -27,6 +27,7 @@ struct ExportCommands: Commands {
                     exportAction?(url)
                 }
             }
+            .keyboardShortcut("e", modifiers: .command)
             .disabled(!(exportEnabled ?? false))
         }
     }
