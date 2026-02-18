@@ -14,7 +14,7 @@ struct PhotoThumbnailView: View {
     let size: CGFloat
 
     var body: some View {
-        ZStack(alignment: .bottomTrailing) {
+        ZStack(alignment: .bottom) {
             if let image = viewModel.thumbnails[asset.localIdentifier] {
                 Image(nsImage: image)
                     .resizable()
@@ -30,16 +30,28 @@ struct PhotoThumbnailView: View {
                     }
             }
 
-            if asset.mediaType == .video {
-                Text(formattedDuration(asset.duration))
-                    .font(.caption2)
-                    .fontWeight(.semibold)
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 4)
-                    .padding(.vertical, 2)
-                    .background(.black.opacity(0.7), in: RoundedRectangle(cornerRadius: 4))
-                    .padding(4)
+            HStack {
+                if asset.mediaType == .video {
+                    Text(formattedDuration(asset.duration))
+                        .font(.caption2)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 4)
+                        .padding(.vertical, 2)
+                        .background(.black.opacity(0.7), in: RoundedRectangle(cornerRadius: 4))
+                }
+                Spacer()
+                if let cached = viewModel.metadataCache[asset.localIdentifier] {
+                    Text(formattedFileSize(cached.fileSize))
+                        .font(.caption2)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 4)
+                        .padding(.vertical, 2)
+                        .background(.black.opacity(0.7), in: RoundedRectangle(cornerRadius: 4))
+                }
             }
+            .padding(4)
         }
         .cornerRadius(4)
         .task {
@@ -52,5 +64,9 @@ struct PhotoThumbnailView: View {
         let minutes = totalSeconds / 60
         let seconds = totalSeconds % 60
         return String(format: "%d:%02d", minutes, seconds)
+    }
+
+    private func formattedFileSize(_ bytes: Int64) -> String {
+        ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file)
     }
 }

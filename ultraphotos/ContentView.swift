@@ -5,9 +5,11 @@
 //  Created by Friedrich Ewald on 2/18/26.
 //
 
+import SwiftData
 import SwiftUI
 
 struct ContentView: View {
+    @Environment(\.modelContext) private var modelContext
     @State private var viewModel = PhotoGridViewModel()
     @State private var thumbnailSize: CGFloat = 150
 
@@ -33,6 +35,15 @@ struct ContentView: View {
             .toolbar {
                 if viewModel.authorizationState == .authorized || viewModel.authorizationState == .limited {
                     ToolbarItem {
+                        Picker("Media Type", selection: Bindable(viewModel).mediaFilter) {
+                            ForEach(MediaTypeFilter.allCases) { filter in
+                                Label(filter.label, systemImage: filter.systemImage)
+                                    .tag(filter)
+                            }
+                        }
+                        .pickerStyle(.segmented)
+                    }
+                    ToolbarItem {
                         HStack(spacing: 4) {
                             Image(systemName: "photo")
                                 .imageScale(.small)
@@ -42,6 +53,24 @@ struct ContentView: View {
                                 .imageScale(.large)
                         }
                     }
+                    ToolbarItem {
+                        Picker("Sort By", selection: Bindable(viewModel).sortOption) {
+                            ForEach(SortOption.allCases) { option in
+                                Label(option.label, systemImage: option.systemImage)
+                                    .tag(option)
+                            }
+                        }
+                        .pickerStyle(.menu)
+                    }
+                    ToolbarItem {
+                        Button {
+                            viewModel.sortOrder = viewModel.sortOrder == .ascending
+                                ? .descending : .ascending
+                        } label: {
+                            Image(systemName: viewModel.sortOrder.systemImage)
+                        }
+                        .help(viewModel.sortOrder == .ascending ? "Sort Ascending" : "Sort Descending")
+                    }
                 }
             }
         }
@@ -50,8 +79,16 @@ struct ContentView: View {
                 VStack(spacing: 0) {
                     Divider()
                     HStack {
+                        if viewModel.isSyncingMetadata {
+                            ProgressView()
+                                .controlSize(.small)
+                            Text("Loading Metadata \(viewModel.metadataSyncProgress.formatted())/\(viewModel.metadataSyncTotal.formatted())")
+                                .foregroundStyle(.secondary)
+                                .font(.callout)
+                                .monospacedDigit()
+                        }
                         Spacer()
-                        Text("\(viewModel.assets.count) items")
+                        Text("\(viewModel.filteredAssets.count) items")
                             .foregroundStyle(.secondary)
                             .font(.callout)
                     }
@@ -62,6 +99,7 @@ struct ContentView: View {
             }
         }
         .task {
+            viewModel.configure(modelContainer: modelContext.container)
             viewModel.checkAuthorizationStatus()
             if viewModel.authorizationState == .notDetermined {
                 await viewModel.requestAuthorization()
@@ -96,14 +134,14 @@ struct ContentView: View {
                 ProgressView("Loading photos...")
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .padding(.top, 100)
-            } else if viewModel.assets.isEmpty {
+            } else if viewModel.filteredAssets.isEmpty {
                 Text("No photos or videos found.")
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .padding(.top, 100)
             } else {
                 LazyVGrid(columns: columns, spacing: 4) {
-                    ForEach(viewModel.assets, id: \.localIdentifier) { asset in
+                    ForEach(viewModel.filteredAssets, id: \.localIdentifier) { asset in
                         PhotoThumbnailView(asset: asset, viewModel: viewModel, size: thumbnailSize)
                     }
                 }
