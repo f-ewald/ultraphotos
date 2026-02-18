@@ -12,10 +12,15 @@ struct PhotoThumbnailView: View {
     let asset: PHAsset
     @Bindable var viewModel: PhotoGridViewModel
     let size: CGFloat
+    @State private var image: NSImage?
+
+    private var isSelected: Bool {
+        viewModel.selectedIdentifiers.contains(asset.localIdentifier)
+    }
 
     var body: some View {
-        ZStack(alignment: .bottom) {
-            if let image = viewModel.thumbnails[asset.localIdentifier] {
+        ZStack {
+            if let image {
                 Image(nsImage: image)
                     .resizable()
                     .aspectRatio(contentMode: .fill)
@@ -30,32 +35,65 @@ struct PhotoThumbnailView: View {
                     }
             }
 
-            HStack {
-                if asset.mediaType == .video {
-                    Text(formattedDuration(asset.duration))
-                        .font(.caption2)
-                        .fontWeight(.semibold)
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 4)
-                        .padding(.vertical, 2)
-                        .background(.black.opacity(0.7), in: RoundedRectangle(cornerRadius: 4))
+            VStack {
+                HStack {
+                    Spacer()
+                    if let date = asset.creationDate {
+                        Text(date, style: .date)
+                            .font(.caption2)
+                            .fontWeight(.semibold)
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 4)
+                            .padding(.vertical, 2)
+                            .background(.black.opacity(0.7), in: RoundedRectangle(cornerRadius: 4))
+                    }
                 }
                 Spacer()
-                if let cached = viewModel.metadataCache[asset.localIdentifier] {
-                    Text(formattedFileSize(cached.fileSize))
-                        .font(.caption2)
-                        .fontWeight(.semibold)
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 4)
-                        .padding(.vertical, 2)
-                        .background(.black.opacity(0.7), in: RoundedRectangle(cornerRadius: 4))
+                HStack {
+                    if asset.mediaType == .video {
+                        Text(formattedDuration(asset.duration))
+                            .font(.caption2)
+                            .fontWeight(.semibold)
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 4)
+                            .padding(.vertical, 2)
+                            .background(.black.opacity(0.7), in: RoundedRectangle(cornerRadius: 4))
+                    }
+                    Spacer()
+                    if let cached = viewModel.metadataCache[asset.localIdentifier] {
+                        Text(formattedFileSize(cached.fileSize))
+                            .font(.caption2)
+                            .fontWeight(.semibold)
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 4)
+                            .padding(.vertical, 2)
+                            .background(.black.opacity(0.7), in: RoundedRectangle(cornerRadius: 4))
+                    }
                 }
             }
             .padding(4)
         }
         .cornerRadius(4)
+        .overlay {
+            if isSelected {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 4)
+                        .fill(Color.accentColor.opacity(0.15))
+                    RoundedRectangle(cornerRadius: 4)
+                        .strokeBorder(Color.accentColor, lineWidth: 3)
+                }
+            }
+        }
+        .onTapGesture {
+            let modifiers = NSApp.currentEvent?.modifierFlags
+                .intersection(.deviceIndependentFlagsMask) ?? []
+            viewModel.handleThumbnailClick(
+                identifier: asset.localIdentifier,
+                modifiers: modifiers
+            )
+        }
         .task {
-            await viewModel.loadThumbnail(for: asset)
+            image = await viewModel.loadThumbnail(for: asset)
         }
     }
 

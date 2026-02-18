@@ -93,7 +93,7 @@ final class PhotoGridViewModel {
 
     private(set) var authorizationState: PhotoAuthorizationState = .notDetermined
     private(set) var assets: [PHAsset] = []
-    private(set) var thumbnails: [String: NSImage] = [:]
+    private let thumbnailCache = NSCache<NSString, NSImage>()
     private(set) var isLoading = false
     private(set) var errorMessage: String?
     var mediaFilter: MediaTypeFilter = .all
@@ -103,12 +103,15 @@ final class PhotoGridViewModel {
     private(set) var metadataSyncProgress: Int = 0
     private(set) var metadataSyncTotal: Int = 0
     private(set) var metadataCache: [String: MediaMetadata] = [:]
+    private(set) var selectedIdentifiers: Set<String> = []
+    private(set) var lastClickedIdentifier: String?
 
     private var modelContainer: ModelContainer?
     private let service: PhotoLibraryServing
 
     init(service: PhotoLibraryServing = PhotoLibraryService()) {
         self.service = service
+        thumbnailCache.countLimit = 300
     }
 
     func configure(modelContainer: ModelContainer) {
@@ -153,9 +156,11 @@ final class PhotoGridViewModel {
         await syncMetadata()
     }
 
-    func loadThumbnail(for asset: PHAsset) async {
-        let identifier = asset.localIdentifier
-        guard thumbnails[identifier] == nil else { return }
+    func loadThumbnail(for asset: PHAsset) async -> NSImage? {
+        let key = asset.localIdentifier as NSString
+        if let cached = thumbnailCache.object(forKey: key) {
+            return cached
+        }
 
         let image = await service.requestImage(
             for: asset,
@@ -164,8 +169,9 @@ final class PhotoGridViewModel {
             options: nil
         )
         if let image {
-            thumbnails[identifier] = image
+            thumbnailCache.setObject(image, forKey: key)
         }
+        return image
     }
 
     func loadMetadataCache() async {
@@ -185,7 +191,7 @@ final class PhotoGridViewModel {
     }
 
     func syncMetadata() async {
-        guard let container = modelContainer, !assets.isEmpty else { return }
+        guard let container = modelContainer, !isSyncingMetadata else { return }
 
         isSyncingMetadata = true
         metadataSyncProgress = 0
@@ -197,15 +203,25 @@ final class PhotoGridViewModel {
             let context = ModelContext(container)
 
             let descriptor = FetchDescriptor<MediaMetadata>()
-            let existing: Set<String>
+            let existingRecords: [MediaMetadata]
             do {
-                let records = try context.fetch(descriptor)
-                existing = Set(records.map(\.localIdentifier))
+                existingRecords = try context.fetch(descriptor)
             } catch {
                 return nil as [String: MediaMetadata]?
             }
 
-            let toSync = assetsSnapshot.filter { !existing.contains($0.localIdentifier) }
+            // Deletion pass: remove records for assets no longer in the library
+            let currentAssetIDs = Set(assetsSnapshot.map(\.localIdentifier))
+            let staleRecords = existingRecords.filter { !currentAssetIDs.contains($0.localIdentifier) }
+            for record in staleRecords {
+                context.delete(record)
+            }
+            if !staleRecords.isEmpty {
+                try? context.save()
+            }
+
+            let remainingIDs = Set(existingRecords.map(\.localIdentifier)).subtracting(staleRecords.map(\.localIdentifier))
+            let toSync = assetsSnapshot.filter { !remainingIDs.contains($0.localIdentifier) }
             let total = toSync.count
             await MainActor.run { viewModel.metadataSyncTotal = total }
 
@@ -259,6 +275,68 @@ final class PhotoGridViewModel {
             metadataCache = result
         }
         isSyncingMetadata = false
+    }
+
+    func refreshMetadata() async {
+        guard !isSyncingMetadata else { return }
+        await fetchAssets()
+        thumbnailCache.removeAllObjects()
+    }
+
+    static func rangeSelection(
+        in orderedIdentifiers: [String],
+        from anchor: String,
+        to target: String
+    ) -> Set<String>? {
+        guard let anchorIndex = orderedIdentifiers.firstIndex(of: anchor),
+              let targetIndex = orderedIdentifiers.firstIndex(of: target) else {
+            return nil
+        }
+        let range = min(anchorIndex, targetIndex)...max(anchorIndex, targetIndex)
+        return Set(orderedIdentifiers[range])
+    }
+
+    func handleThumbnailClick(identifier: String, modifiers: NSEvent.ModifierFlags) {
+        if modifiers.contains(.command) {
+            // Cmd+Click: toggle individual item
+            if selectedIdentifiers.contains(identifier) {
+                selectedIdentifiers.remove(identifier)
+            } else {
+                selectedIdentifiers.insert(identifier)
+            }
+            lastClickedIdentifier = identifier
+        } else if modifiers.contains(.shift), let lastClicked = lastClickedIdentifier {
+            // Shift+Click: select contiguous range from anchor to target
+            let identifiers = filteredAssets.map(\.localIdentifier)
+            if let rangeSet = Self.rangeSelection(in: identifiers, from: lastClicked, to: identifier) {
+                selectedIdentifiers = rangeSet
+            } else {
+                // Anchor or target not in current filtered list — fall back to plain click
+                selectedIdentifiers = [identifier]
+                lastClickedIdentifier = identifier
+            }
+            // Note: lastClickedIdentifier is NOT updated on shift-click (Finder behavior —
+            // the anchor stays fixed so repeated shift-clicks adjust the range end)
+        } else {
+            // Plain click: select only this item
+            selectedIdentifiers = [identifier]
+            lastClickedIdentifier = identifier
+        }
+    }
+
+    func clearSelection() {
+        selectedIdentifiers.removeAll()
+        lastClickedIdentifier = nil
+    }
+
+    func selectAll() {
+        selectedIdentifiers = Set(filteredAssets.map(\.localIdentifier))
+    }
+
+    var selectedCount: Int {
+        guard !selectedIdentifiers.isEmpty else { return 0 }
+        let visibleIDs = Set(filteredAssets.map(\.localIdentifier))
+        return selectedIdentifiers.intersection(visibleIDs).count
     }
 
     var filteredAssets: [PHAsset] {

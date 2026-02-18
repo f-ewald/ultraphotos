@@ -71,6 +71,15 @@ struct ContentView: View {
                         }
                         .help(viewModel.sortOrder == .ascending ? "Sort Ascending" : "Sort Descending")
                     }
+                    ToolbarItem {
+                        Button {
+                            Task { await viewModel.refreshMetadata() }
+                        } label: {
+                            Image(systemName: "arrow.clockwise")
+                        }
+                        .help("Refresh Metadata")
+                        .disabled(viewModel.isSyncingMetadata)
+                    }
                 }
             }
         }
@@ -82,15 +91,21 @@ struct ContentView: View {
                         if viewModel.isSyncingMetadata {
                             ProgressView()
                                 .controlSize(.small)
-                            Text("Loading Metadata \(viewModel.metadataSyncProgress.formatted())/\(viewModel.metadataSyncTotal.formatted())")
+                            Text("Syncing Metadata \(viewModel.metadataSyncProgress.formatted())/\(viewModel.metadataSyncTotal.formatted())")
                                 .foregroundStyle(.secondary)
                                 .font(.callout)
                                 .monospacedDigit()
                         }
                         Spacer()
-                        Text("\(viewModel.filteredAssets.count) items")
-                            .foregroundStyle(.secondary)
-                            .font(.callout)
+                        if viewModel.selectedCount > 0 {
+                            Text("\(viewModel.selectedCount) of \(viewModel.filteredAssets.count) selected")
+                                .foregroundStyle(.secondary)
+                                .font(.callout)
+                        } else {
+                            Text("\(viewModel.filteredAssets.count) items")
+                                .foregroundStyle(.secondary)
+                                .font(.callout)
+                        }
                     }
                     .padding(.horizontal)
                     .padding(.vertical, 6)
@@ -147,6 +162,15 @@ struct ContentView: View {
                 }
                 .padding(4)
             }
+        }
+        .background {
+            Button("Select All") { viewModel.selectAll() }
+                .keyboardShortcut("a", modifiers: .command)
+                .hidden()
+        }
+        .onKeyPress(.escape) {
+            viewModel.clearSelection()
+            return .handled
         }
     }
 

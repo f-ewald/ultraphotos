@@ -58,7 +58,6 @@ struct PhotoGridViewModelTests {
 
         #expect(viewModel.authorizationState == .notDetermined)
         #expect(viewModel.assets.isEmpty)
-        #expect(viewModel.thumbnails.isEmpty)
         #expect(viewModel.isLoading == false)
         #expect(viewModel.errorMessage == nil)
     }
@@ -367,8 +366,199 @@ struct PhotoGridViewModelTests {
         #expect(viewModel.metadataCache.isEmpty)
     }
 
+    @Test func syncMetadataDeletesStaleRecords() async throws {
+        let mock = MockPhotoLibraryService()
+        // Mock returns empty fetch result, so no assets exist in the library
+        mock.stubbedFetchResult = PHFetchResult<PHAsset>()
+
+        let viewModel = PhotoGridViewModel(service: mock)
+
+        let schema = Schema(versionedSchema: MediaMetadataSchemaV1.self)
+        let config = ModelConfiguration(isStoredInMemoryOnly: true)
+        let container = try ModelContainer(for: schema, configurations: [config])
+        viewModel.configure(modelContainer: container)
+
+        // Insert a stale record that doesn't correspond to any current asset
+        let context = ModelContext(container)
+        let staleMetadata = MediaMetadata(
+            localIdentifier: "stale-asset-id",
+            fileSize: 500,
+            creationDate: nil,
+            duration: 0,
+            latitude: nil,
+            longitude: nil
+        )
+        context.insert(staleMetadata)
+        try context.save()
+
+        // Fetch assets (returns empty) then sync metadata
+        await viewModel.fetchAssets()
+
+        // The stale record should have been deleted
+        let descriptor = FetchDescriptor<MediaMetadata>()
+        let remaining = try ModelContext(container).fetch(descriptor)
+        #expect(remaining.isEmpty)
+        #expect(viewModel.metadataCache.isEmpty)
+    }
+
+    @Test func refreshMetadataCompletesCleanly() async {
+        let mock = MockPhotoLibraryService()
+        let viewModel = PhotoGridViewModel(service: mock)
+        // No container configured — refreshMetadata should still complete without error
+
+        await viewModel.refreshMetadata()
+
+        #expect(viewModel.isSyncingMetadata == false)
+    }
+
     @Test func migrationPlanHasOneSchema() {
         #expect(MediaMetadataMigrationPlan.schemas.count == 1)
         #expect(MediaMetadataMigrationPlan.stages.isEmpty)
+    }
+
+    // MARK: - Selection tests
+
+    @Test func initialSelectionIsEmpty() {
+        let mock = MockPhotoLibraryService()
+        let viewModel = PhotoGridViewModel(service: mock)
+
+        #expect(viewModel.selectedIdentifiers.isEmpty)
+        #expect(viewModel.lastClickedIdentifier == nil)
+    }
+
+    @Test func plainClickSelectsSingleItem() {
+        let mock = MockPhotoLibraryService()
+        let viewModel = PhotoGridViewModel(service: mock)
+
+        viewModel.handleThumbnailClick(identifier: "item-1", modifiers: [])
+
+        #expect(viewModel.selectedIdentifiers == ["item-1"])
+        #expect(viewModel.lastClickedIdentifier == "item-1")
+    }
+
+    @Test func plainClickReplacesExistingSelection() {
+        let mock = MockPhotoLibraryService()
+        let viewModel = PhotoGridViewModel(service: mock)
+
+        viewModel.handleThumbnailClick(identifier: "item-1", modifiers: [])
+        viewModel.handleThumbnailClick(identifier: "item-2", modifiers: [])
+
+        #expect(viewModel.selectedIdentifiers == ["item-2"])
+        #expect(viewModel.lastClickedIdentifier == "item-2")
+    }
+
+    @Test func cmdClickTogglesItemIn() {
+        let mock = MockPhotoLibraryService()
+        let viewModel = PhotoGridViewModel(service: mock)
+
+        viewModel.handleThumbnailClick(identifier: "item-1", modifiers: [])
+        viewModel.handleThumbnailClick(identifier: "item-2", modifiers: .command)
+
+        #expect(viewModel.selectedIdentifiers == ["item-1", "item-2"])
+        #expect(viewModel.lastClickedIdentifier == "item-2")
+    }
+
+    @Test func cmdClickTogglesItemOut() {
+        let mock = MockPhotoLibraryService()
+        let viewModel = PhotoGridViewModel(service: mock)
+
+        viewModel.handleThumbnailClick(identifier: "item-1", modifiers: [])
+        viewModel.handleThumbnailClick(identifier: "item-2", modifiers: .command)
+        viewModel.handleThumbnailClick(identifier: "item-1", modifiers: .command)
+
+        #expect(viewModel.selectedIdentifiers == ["item-2"])
+        #expect(viewModel.lastClickedIdentifier == "item-1")
+    }
+
+    @Test func shiftClickWithNoAnchorFallsToPlainClick() {
+        let mock = MockPhotoLibraryService()
+        let viewModel = PhotoGridViewModel(service: mock)
+
+        // No prior click, so lastClickedIdentifier is nil
+        viewModel.handleThumbnailClick(identifier: "item-1", modifiers: .shift)
+
+        // Falls through to plain click
+        #expect(viewModel.selectedIdentifiers == ["item-1"])
+        #expect(viewModel.lastClickedIdentifier == "item-1")
+    }
+
+    @Test func shiftClickWithAnchorNotInFilteredFallsToPlainClick() {
+        let mock = MockPhotoLibraryService()
+        let viewModel = PhotoGridViewModel(service: mock)
+
+        // Set anchor via plain click, but filteredAssets is empty (no assets fetched)
+        viewModel.handleThumbnailClick(identifier: "item-1", modifiers: [])
+        viewModel.handleThumbnailClick(identifier: "item-3", modifiers: .shift)
+
+        // Both identifiers missing from empty filteredAssets — falls back to plain click
+        #expect(viewModel.selectedIdentifiers == ["item-3"])
+        #expect(viewModel.lastClickedIdentifier == "item-3")
+    }
+
+    @Test func clearSelectionResetsState() {
+        let mock = MockPhotoLibraryService()
+        let viewModel = PhotoGridViewModel(service: mock)
+
+        viewModel.handleThumbnailClick(identifier: "item-1", modifiers: [])
+        viewModel.clearSelection()
+
+        #expect(viewModel.selectedIdentifiers.isEmpty)
+        #expect(viewModel.lastClickedIdentifier == nil)
+    }
+
+    @Test func selectAllOnEmptyFilteredAssets() {
+        let mock = MockPhotoLibraryService()
+        let viewModel = PhotoGridViewModel(service: mock)
+
+        viewModel.selectAll()
+
+        #expect(viewModel.selectedIdentifiers.isEmpty)
+    }
+
+    // MARK: - rangeSelection static helper tests
+
+    @Test func rangeSelectionForwardRange() {
+        let result = PhotoGridViewModel.rangeSelection(
+            in: ["a", "b", "c", "d", "e"],
+            from: "b",
+            to: "d"
+        )
+        #expect(result == Set(["b", "c", "d"]))
+    }
+
+    @Test func rangeSelectionBackwardRange() {
+        let result = PhotoGridViewModel.rangeSelection(
+            in: ["a", "b", "c", "d", "e"],
+            from: "d",
+            to: "b"
+        )
+        #expect(result == Set(["b", "c", "d"]))
+    }
+
+    @Test func rangeSelectionSameItem() {
+        let result = PhotoGridViewModel.rangeSelection(
+            in: ["a", "b", "c", "d", "e"],
+            from: "b",
+            to: "b"
+        )
+        #expect(result == Set(["b"]))
+    }
+
+    @Test func rangeSelectionMissingAnchorReturnsNil() {
+        let result = PhotoGridViewModel.rangeSelection(
+            in: ["a", "b", "c"],
+            from: "z",
+            to: "b"
+        )
+        #expect(result == nil)
+    }
+
+    @Test func rangeSelectionMissingTargetReturnsNil() {
+        let result = PhotoGridViewModel.rangeSelection(
+            in: ["a", "b", "c"],
+            from: "a",
+            to: "z"
+        )
+        #expect(result == nil)
     }
 }
