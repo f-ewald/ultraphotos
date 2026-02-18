@@ -18,6 +18,7 @@ protocol PhotoLibraryServing: Sendable {
         contentMode: PHImageContentMode,
         options: PHImageRequestOptions?
     ) async -> NSImage?
+    nonisolated func writeAssetResource(_ resource: PHAssetResource, toFileURL url: URL, options: PHAssetResourceRequestOptions?) async throws
 }
 
 final class PhotoLibraryService: PhotoLibraryServing {
@@ -54,6 +55,18 @@ final class PhotoLibraryService: PhotoLibraryServing {
                 options: requestOptions
             ) { image, _ in
                 continuation.resume(returning: image)
+            }
+        }
+    }
+
+    nonisolated func writeAssetResource(_ resource: PHAssetResource, toFileURL url: URL, options: PHAssetResourceRequestOptions?) async throws {
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            PHAssetResourceManager.default().writeData(for: resource, toFile: url, options: options) { error in
+                if let error {
+                    continuation.resume(throwing: error)
+                } else {
+                    continuation.resume()
+                }
             }
         }
     }

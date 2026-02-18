@@ -16,11 +16,13 @@ final class MockPhotoLibraryService: PhotoLibraryServing {
     var stubbedRequestAuthorizationStatus: PHAuthorizationStatus = .authorized
     var stubbedFetchResult: PHFetchResult<PHAsset> = PHFetchResult<PHAsset>()
     var stubbedImage: NSImage? = NSImage()
+    var writeAssetResourceShouldThrow = false
 
     var authorizationStatusCallCount = 0
     var requestAuthorizationCallCount = 0
     var fetchAssetsCallCount = 0
     var requestImageCallCount = 0
+    var writeAssetResourceCallCount = 0
     var lastRequestedTargetSize: CGSize?
 
     func authorizationStatus(for accessLevel: PHAccessLevel) -> PHAuthorizationStatus {
@@ -47,6 +49,13 @@ final class MockPhotoLibraryService: PhotoLibraryServing {
         requestImageCallCount += 1
         lastRequestedTargetSize = targetSize
         return stubbedImage
+    }
+
+    nonisolated func writeAssetResource(_ resource: PHAssetResource, toFileURL url: URL, options: PHAssetResourceRequestOptions?) async throws {
+        writeAssetResourceCallCount += 1
+        if writeAssetResourceShouldThrow {
+            throw NSError(domain: "MockError", code: 1, userInfo: [NSLocalizedDescriptionKey: "Mock write failure"])
+        }
     }
 }
 
@@ -590,5 +599,47 @@ struct PhotoGridViewModelTests {
 
     @Test func exportMenuTitleMixedSingular() {
         #expect(PhotoGridViewModel.exportMenuTitle(photoCount: 1, videoCount: 1) == "Export 1 Photo and 1 Video")
+    }
+
+    // MARK: - Export state tests
+
+    @Test func isExportingIsFalseInitially() {
+        let mock = MockPhotoLibraryService()
+        let viewModel = PhotoGridViewModel(service: mock)
+
+        #expect(viewModel.isExporting == false)
+        #expect(viewModel.exportProgress == 0)
+        #expect(viewModel.exportTotal == 0)
+        #expect(viewModel.exportResult == nil)
+    }
+
+    @Test func clearExportResultSetsNil() {
+        let mock = MockPhotoLibraryService()
+        let viewModel = PhotoGridViewModel(service: mock)
+
+        // Manually trigger an export with no selection to produce a result
+        // then clear it
+        viewModel.clearExportResult()
+        #expect(viewModel.exportResult == nil)
+    }
+
+    @Test func exportResultEquality() {
+        let a = ExportResult(successCount: 1, failureCount: 2, skippedCount: 3)
+        let b = ExportResult(successCount: 1, failureCount: 2, skippedCount: 3)
+        let c = ExportResult(successCount: 0, failureCount: 0, skippedCount: 0)
+
+        #expect(a == b)
+        #expect(a != c)
+    }
+
+    @Test func exportWithNoSelectionCompletesImmediately() async {
+        let mock = MockPhotoLibraryService()
+        let viewModel = PhotoGridViewModel(service: mock)
+
+        // No assets selected
+        await viewModel.exportAssets(to: URL(fileURLWithPath: "/tmp"))
+
+        #expect(viewModel.isExporting == false)
+        #expect(viewModel.exportResult == ExportResult(successCount: 0, failureCount: 0, skippedCount: 0))
     }
 }

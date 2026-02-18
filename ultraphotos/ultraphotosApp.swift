@@ -12,6 +12,7 @@ import SwiftUI
 struct ExportCommands: Commands {
     @FocusedValue(\.exportMenuTitle) var exportTitle
     @FocusedValue(\.exportEnabled) var exportEnabled
+    @FocusedValue(\.exportAction) var exportAction
 
     var body: some Commands {
         CommandGroup(after: .newItem) {
@@ -21,8 +22,9 @@ struct ExportCommands: Commands {
                 panel.canChooseDirectories = true
                 panel.allowsMultipleSelection = false
                 panel.prompt = "Export"
-                panel.begin { _ in
-                    // Export logic will be added later
+                panel.begin { response in
+                    guard response == .OK, let url = panel.url else { return }
+                    exportAction?(url)
                 }
             }
             .disabled(!(exportEnabled ?? false))

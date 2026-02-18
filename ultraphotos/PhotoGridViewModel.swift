@@ -87,6 +87,12 @@ enum SortOrder: String, CaseIterable, Identifiable {
     }
 }
 
+struct ExportResult: Equatable {
+    let successCount: Int
+    let failureCount: Int
+    let skippedCount: Int
+}
+
 @Observable
 final class PhotoGridViewModel {
     static let thumbnailSize = CGSize(width: 300, height: 300)
@@ -96,18 +102,29 @@ final class PhotoGridViewModel {
     private let thumbnailCache = NSCache<NSString, NSImage>()
     private(set) var isLoading = false
     private(set) var errorMessage: String?
-    var mediaFilter: MediaTypeFilter = .all
-    var sortOption: SortOption = .recordTime
-    var sortOrder: SortOrder = .descending
+    var mediaFilter: MediaTypeFilter = .all {
+        didSet { updateFilteredAssets() }
+    }
+    var sortOption: SortOption = .recordTime {
+        didSet { updateFilteredAssets() }
+    }
+    var sortOrder: SortOrder = .descending {
+        didSet { updateFilteredAssets() }
+    }
     private(set) var isSyncingMetadata = false
     private(set) var metadataSyncProgress: Int = 0
     private(set) var metadataSyncTotal: Int = 0
     private(set) var metadataCache: [String: MediaMetadata] = [:]
     private(set) var selectedIdentifiers: Set<String> = []
     private(set) var lastClickedIdentifier: String?
+    private(set) var isExporting = false
+    private(set) var exportProgress: Int = 0
+    private(set) var exportTotal: Int = 0
+    private(set) var exportResult: ExportResult?
 
     private var modelContainer: ModelContainer?
     private let service: PhotoLibraryServing
+    private var filterGeneration: UInt64 = 0
 
     init(service: PhotoLibraryServing = PhotoLibraryService()) {
         self.service = service
@@ -150,6 +167,7 @@ final class PhotoGridViewModel {
             fetchedAssets.append(asset)
         }
         assets = fetchedAssets
+        updateFilteredAssets()
         isLoading = false
 
         await loadMetadataCache()
@@ -185,6 +203,7 @@ final class PhotoGridViewModel {
                 cache[record.localIdentifier] = record
             }
             metadataCache = cache
+            updateFilteredAssets()
         } catch {
             errorMessage = "Failed to load metadata cache: \(error.localizedDescription)"
         }
@@ -273,6 +292,7 @@ final class PhotoGridViewModel {
 
         if let result {
             metadataCache = result
+            updateFilteredAssets()
         }
         isSyncingMetadata = false
     }
@@ -324,6 +344,71 @@ final class PhotoGridViewModel {
         }
     }
 
+    func clearExportResult() {
+        exportResult = nil
+    }
+
+    func exportAssets(to directoryURL: URL) async {
+        guard !isExporting else { return }
+
+        let assetsToExport = selectedAssets
+        guard !assetsToExport.isEmpty else {
+            exportResult = ExportResult(successCount: 0, failureCount: 0, skippedCount: 0)
+            return
+        }
+
+        isExporting = true
+        exportProgress = 0
+        exportTotal = assetsToExport.count
+        exportResult = nil
+
+        let service = self.service
+        let viewModel = self
+
+        let result: ExportResult = await Task.detached {
+            var successCount = 0
+            var failureCount = 0
+            var skippedCount = 0
+
+            for asset in assetsToExport {
+                let resources = PHAssetResource.assetResources(for: asset)
+                guard let resource = resources.first else {
+                    failureCount += 1
+                    let progress = successCount + failureCount + skippedCount
+                    await MainActor.run { viewModel.exportProgress = progress }
+                    continue
+                }
+
+                let destinationURL = directoryURL.appendingPathComponent(resource.originalFilename)
+
+                if FileManager.default.fileExists(atPath: destinationURL.path) {
+                    skippedCount += 1
+                    let progress = successCount + failureCount + skippedCount
+                    await MainActor.run { viewModel.exportProgress = progress }
+                    continue
+                }
+
+                let options = PHAssetResourceRequestOptions()
+                options.isNetworkAccessAllowed = true
+
+                do {
+                    try await service.writeAssetResource(resource, toFileURL: destinationURL, options: options)
+                    successCount += 1
+                } catch {
+                    failureCount += 1
+                }
+
+                let progress = successCount + failureCount + skippedCount
+                await MainActor.run { viewModel.exportProgress = progress }
+            }
+
+            return ExportResult(successCount: successCount, failureCount: failureCount, skippedCount: skippedCount)
+        }.value
+
+        isExporting = false
+        exportResult = result
+    }
+
     func clearSelection() {
         selectedIdentifiers.removeAll()
         lastClickedIdentifier = nil
@@ -363,7 +448,9 @@ final class PhotoGridViewModel {
         }
     }
 
-    var filteredAssets: [PHAsset] {
+    private(set) var filteredAssets: [PHAsset] = []
+
+    private func updateFilteredAssets() {
         let filtered: [PHAsset]
         switch mediaFilter {
         case .all:
@@ -377,24 +464,54 @@ final class PhotoGridViewModel {
         // The fetch already returns assets sorted by creationDate descending,
         // so skip re-sorting when that matches the current sort settings.
         if sortOption == .recordTime && sortOrder == .descending {
-            return filtered
+            filteredAssets = filtered
+            return
         }
 
-        return filtered.sorted { a, b in
-            let result: Bool
-            switch sortOption {
-            case .recordTime:
-                let dateA = a.creationDate ?? .distantPast
-                let dateB = b.creationDate ?? .distantPast
-                result = dateA < dateB
-            case .duration:
-                result = a.duration < b.duration
-            case .fileSize:
-                let sizeA = metadataCache[a.localIdentifier]?.fileSize ?? 0
-                let sizeB = metadataCache[b.localIdentifier]?.fileSize ?? 0
-                result = sizeA < sizeB
+        // Show filtered (unsorted) results immediately so the UI stays populated
+        // while the background sort runs.
+        filteredAssets = filtered
+
+        filterGeneration &+= 1
+        let generation = filterGeneration
+        let option = sortOption
+        let order = sortOrder
+
+        // Pre-extract file sizes into a plain dictionary so the background
+        // closure only captures Sendable values (no @Model objects).
+        let fileSizes: [String: Int64]?
+        if option == .fileSize {
+            var sizes: [String: Int64] = [:]
+            sizes.reserveCapacity(metadataCache.count)
+            for (id, meta) in metadataCache {
+                sizes[id] = meta.fileSize
             }
-            return sortOrder == .ascending ? result : !result
+            fileSizes = sizes
+        } else {
+            fileSizes = nil
+        }
+
+        Task.detached {
+            let sorted = filtered.sorted { a, b in
+                let result: Bool
+                switch option {
+                case .recordTime:
+                    let dateA = a.creationDate ?? .distantPast
+                    let dateB = b.creationDate ?? .distantPast
+                    result = dateA < dateB
+                case .duration:
+                    result = a.duration < b.duration
+                case .fileSize:
+                    let sizeA = fileSizes?[a.localIdentifier] ?? 0
+                    let sizeB = fileSizes?[b.localIdentifier] ?? 0
+                    result = sizeA < sizeB
+                }
+                return order == .ascending ? result : !result
+            }
+            await MainActor.run { [weak self] in
+                guard let self, self.filterGeneration == generation else { return }
+                self.filteredAssets = sorted
+            }
         }
     }
 
