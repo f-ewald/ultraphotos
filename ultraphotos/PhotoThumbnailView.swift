@@ -84,6 +84,7 @@ struct PhotoThumbnailView: View {
                 }
             }
         }
+        .contentShape(Rectangle())
         .onTapGesture {
             let modifiers = NSApp.currentEvent?.modifierFlags
                 .intersection(.deviceIndependentFlagsMask) ?? []
