@@ -13,11 +13,6 @@
       <stop offset="0%" stop-color="white" stop-opacity="0.18"/>
       <stop offset="100%" stop-color="white" stop-opacity="0"/>
     </radialGradient>
-
-    <linearGradient id="boltGrad" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#FDE68A"/>
-      <stop offset="100%" stop-color="#F59E0B"/>
-    </linearGradient>
   </defs>
 
   <g clip-path="url(#squircle)">
@@ -61,19 +56,5 @@
     <rect x="300" y="370" width="480" height="350" rx="24" ry="24"
           fill="white" fill-opacity="0.28"
           stroke="white" stroke-opacity="0.70" stroke-width="4"/>
-
-    <!-- Lightning bolt — top-right -->
-    <g transform="translate(720, 160)">
-      <polygon points="30,0 0,50 20,50 -5,100 58,40 34,40 62,0"
-               fill="url(#boltGrad)" stroke="#F59E0B" stroke-width="4"
-               stroke-linejoin="round" stroke-linecap="round"/>
-    </g>
-
-    <!-- Export arrow — bottom-right -->
-    <g transform="translate(725, 730)" stroke="white" stroke-opacity="0.8" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" fill="none">
-      <line x1="0" y1="65" x2="65" y2="0"/>
-      <polyline points="28,0 65,0 65,37"/>
-      <path d="M0,65 L0,82 Q0,95 13,95 L82,95 Q95,95 95,82 L95,65"/>
-    </g>
   </g>
 </svg>
