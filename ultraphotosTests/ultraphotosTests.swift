@@ -79,7 +79,8 @@ struct PhotoGridViewModelTests {
         viewModel.checkAuthorizationStatus()
 
         #expect(viewModel.authorizationState == .notDetermined)
-        #expect(mock.authorizationStatusCallCount == 1)
+        // Count is 2: once during init (to set initial state) and once from checkAuthorizationStatus()
+        #expect(mock.authorizationStatusCallCount == 2)
     }
 
     @Test func checkAuthorizationStatusMapsAuthorized() {
@@ -756,5 +757,142 @@ struct PhotoGridViewModelTests {
             direction: .next
         )
         #expect(result == "a")
+    }
+
+    // MARK: - PhotoAsset tests
+
+    @Test func photoAssetStoresAllProperties() {
+        let date = Date(timeIntervalSince1970: 1_700_000_000)
+        let asset = PhotoAsset(
+            id: "test-123",
+            creationDate: date,
+            isVideo: false,
+            duration: 0,
+            pixelWidth: 4032,
+            pixelHeight: 3024
+        )
+
+        #expect(asset.id == "test-123")
+        #expect(asset.creationDate == date)
+        #expect(asset.isVideo == false)
+        #expect(asset.duration == 0)
+        #expect(asset.pixelWidth == 4032)
+        #expect(asset.pixelHeight == 3024)
+    }
+
+    @Test func photoAssetVideoProperties() {
+        let asset = PhotoAsset(
+            id: "video-456",
+            creationDate: nil,
+            isVideo: true,
+            duration: 120.5,
+            pixelWidth: 1920,
+            pixelHeight: 1080
+        )
+
+        #expect(asset.isVideo == true)
+        #expect(asset.duration == 120.5)
+        #expect(asset.creationDate == nil)
+    }
+
+    @Test func photoAssetEquality() {
+        let a = PhotoAsset(id: "x", creationDate: nil, isVideo: false, duration: 0, pixelWidth: 100, pixelHeight: 100)
+        let b = PhotoAsset(id: "x", creationDate: nil, isVideo: false, duration: 0, pixelWidth: 100, pixelHeight: 100)
+        let c = PhotoAsset(id: "y", creationDate: nil, isVideo: false, duration: 0, pixelWidth: 100, pixelHeight: 100)
+
+        #expect(a == b)
+        #expect(a != c)
+    }
+
+    // MARK: - setAssetsForTesting / filtering tests
+
+    @Test func setAssetsForTestingSetsAssetsAndFilteredAssets() {
+        let mock = MockPhotoLibraryService()
+        let viewModel = PhotoGridViewModel(service: mock)
+
+        let testAssets = [
+            PhotoAsset(id: "p1", creationDate: nil, isVideo: false, duration: 0, pixelWidth: 100, pixelHeight: 100),
+            PhotoAsset(id: "v1", creationDate: nil, isVideo: true, duration: 30, pixelWidth: 100, pixelHeight: 100),
+        ]
+        viewModel.setAssetsForTesting(testAssets)
+
+        #expect(viewModel.assets.count == 2)
+        #expect(viewModel.filteredAssets.count == 2)
+    }
+
+    @Test func filterPhotosOnlyExcludesVideos() {
+        let mock = MockPhotoLibraryService()
+        let viewModel = PhotoGridViewModel(service: mock)
+
+        let testAssets = [
+            PhotoAsset(id: "p1", creationDate: nil, isVideo: false, duration: 0, pixelWidth: 100, pixelHeight: 100),
+            PhotoAsset(id: "p2", creationDate: nil, isVideo: false, duration: 0, pixelWidth: 100, pixelHeight: 100),
+            PhotoAsset(id: "v1", creationDate: nil, isVideo: true, duration: 30, pixelWidth: 100, pixelHeight: 100),
+        ]
+        viewModel.setAssetsForTesting(testAssets)
+        viewModel.mediaFilter = .photosOnly
+
+        #expect(viewModel.filteredAssets.count == 2)
+        #expect(viewModel.filteredAssets.allSatisfy { !$0.isVideo })
+    }
+
+    @Test func filterVideosOnlyExcludesPhotos() {
+        let mock = MockPhotoLibraryService()
+        let viewModel = PhotoGridViewModel(service: mock)
+
+        let testAssets = [
+            PhotoAsset(id: "p1", creationDate: nil, isVideo: false, duration: 0, pixelWidth: 100, pixelHeight: 100),
+            PhotoAsset(id: "v1", creationDate: nil, isVideo: true, duration: 30, pixelWidth: 100, pixelHeight: 100),
+            PhotoAsset(id: "v2", creationDate: nil, isVideo: true, duration: 60, pixelWidth: 100, pixelHeight: 100),
+        ]
+        viewModel.setAssetsForTesting(testAssets)
+        viewModel.mediaFilter = .videosOnly
+
+        #expect(viewModel.filteredAssets.count == 2)
+        #expect(viewModel.filteredAssets.allSatisfy { $0.isVideo })
+    }
+
+    @Test func photoAndVideoCountsUseFilteredAssets() {
+        let mock = MockPhotoLibraryService()
+        let viewModel = PhotoGridViewModel(service: mock)
+
+        let testAssets = [
+            PhotoAsset(id: "p1", creationDate: nil, isVideo: false, duration: 0, pixelWidth: 100, pixelHeight: 100),
+            PhotoAsset(id: "p2", creationDate: nil, isVideo: false, duration: 0, pixelWidth: 100, pixelHeight: 100),
+            PhotoAsset(id: "v1", creationDate: nil, isVideo: true, duration: 30, pixelWidth: 100, pixelHeight: 100),
+        ]
+        viewModel.setAssetsForTesting(testAssets)
+
+        #expect(viewModel.photoCount == 2)
+        #expect(viewModel.videoCount == 1)
+    }
+
+    @Test func selectAllUsesPhotoAssetIds() {
+        let mock = MockPhotoLibraryService()
+        let viewModel = PhotoGridViewModel(service: mock)
+
+        let testAssets = [
+            PhotoAsset(id: "a", creationDate: nil, isVideo: false, duration: 0, pixelWidth: 100, pixelHeight: 100),
+            PhotoAsset(id: "b", creationDate: nil, isVideo: true, duration: 10, pixelWidth: 100, pixelHeight: 100),
+        ]
+        viewModel.setAssetsForTesting(testAssets)
+        viewModel.selectAll()
+
+        #expect(viewModel.selectedIdentifiers == Set(["a", "b"]))
+    }
+
+    @Test func selectedAssetsReturnsPhotoAssets() {
+        let mock = MockPhotoLibraryService()
+        let viewModel = PhotoGridViewModel(service: mock)
+
+        let testAssets = [
+            PhotoAsset(id: "a", creationDate: nil, isVideo: false, duration: 0, pixelWidth: 100, pixelHeight: 100),
+            PhotoAsset(id: "b", creationDate: nil, isVideo: false, duration: 0, pixelWidth: 100, pixelHeight: 100),
+        ]
+        viewModel.setAssetsForTesting(testAssets)
+        viewModel.handleThumbnailClick(identifier: "a", modifiers: [])
+
+        #expect(viewModel.selectedAssets.count == 1)
+        #expect(viewModel.selectedAssets.first?.id == "a")
     }
 }

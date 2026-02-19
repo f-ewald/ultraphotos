@@ -103,7 +103,7 @@ final class PhotoGridViewModel {
     static let thumbnailSize = CGSize(width: 300, height: 300)
 
     private(set) var authorizationState: PhotoAuthorizationState = .notDetermined
-    private(set) var assets: [PHAsset] = []
+    private(set) var assets: [PhotoAsset] = []
     private let thumbnailCache = NSCache<NSString, NSImage>()
     private(set) var isLoading = false
     private(set) var errorMessage: String?
@@ -137,6 +137,10 @@ final class PhotoGridViewModel {
     private var modelContainer: ModelContainer?
     private let service: PhotoLibraryServing
     private var filterGeneration: UInt64 = 0
+
+    #if !SCREENSHOTS
+    private var phAssetsByIdentifier: [String: PHAsset] = [:]
+    #endif
 
     init(service: PhotoLibraryServing = PhotoLibraryService()) {
         self.service = service
@@ -175,11 +179,21 @@ final class PhotoGridViewModel {
         )
 
         let result = service.fetchAssets(with: options)
-        var fetchedAssets: [PHAsset] = []
+        var fetchedPHAssets: [PHAsset] = []
         result.enumerateObjects { asset, _, _ in
-            fetchedAssets.append(asset)
+            fetchedPHAssets.append(asset)
         }
-        assets = fetchedAssets
+
+        #if !SCREENSHOTS
+        var lookup: [String: PHAsset] = [:]
+        lookup.reserveCapacity(fetchedPHAssets.count)
+        for phAsset in fetchedPHAssets {
+            lookup[phAsset.localIdentifier] = phAsset
+        }
+        phAssetsByIdentifier = lookup
+        #endif
+
+        assets = fetchedPHAssets.map { PhotoAsset(from: $0) }
         updateFilteredAssets()
         isLoading = false
 
@@ -187,14 +201,29 @@ final class PhotoGridViewModel {
         await syncMetadata()
     }
 
-    func loadThumbnail(for asset: PHAsset) async -> NSImage? {
-        let key = asset.localIdentifier as NSString
+    func loadThumbnail(for identifier: String) async -> NSImage? {
+        let key = identifier as NSString
         if let cached = thumbnailCache.object(forKey: key) {
             return cached
         }
 
+        #if SCREENSHOTS
+        // Regenerate gradient on cache miss (handles NSCache eviction)
+        if let index = assets.firstIndex(where: { $0.id == identifier }) {
+            let image = DemoDataProvider.generateGradientImage(
+                size: Self.thumbnailSize,
+                identifier: identifier,
+                index: index
+            )
+            thumbnailCache.setObject(image, forKey: key)
+            return image
+        }
+        return nil
+        #else
+        guard let phAsset = phAssetsByIdentifier[identifier] else { return nil }
+
         let image = await service.requestImage(
-            for: asset,
+            for: phAsset,
             targetSize: Self.thumbnailSize,
             contentMode: .aspectFill,
             options: nil
@@ -203,6 +232,7 @@ final class PhotoGridViewModel {
             thumbnailCache.setObject(image, forKey: key)
         }
         return image
+        #endif
     }
 
     func loadMetadataCache() async {
@@ -223,6 +253,10 @@ final class PhotoGridViewModel {
     }
 
     func syncMetadata() async {
+        #if SCREENSHOTS
+        // No metadata sync needed in demo mode
+        return
+        #else
         guard let container = modelContainer, !isSyncingMetadata else { return }
 
         isSyncingMetadata = true
@@ -230,6 +264,7 @@ final class PhotoGridViewModel {
         metadataSyncTotal = 0
 
         let assetsSnapshot = assets
+        let phAssets = phAssetsByIdentifier
         let viewModel = self
         let result: [String: MediaMetadata]? = await Task.detached {
             let context = ModelContext(container)
@@ -243,7 +278,7 @@ final class PhotoGridViewModel {
             }
 
             // Deletion pass: remove records for assets no longer in the library
-            let currentAssetIDs = Set(assetsSnapshot.map(\.localIdentifier))
+            let currentAssetIDs = Set(assetsSnapshot.map(\.id))
             let staleRecords = existingRecords.filter { !currentAssetIDs.contains($0.localIdentifier) }
             for record in staleRecords {
                 context.delete(record)
@@ -253,12 +288,13 @@ final class PhotoGridViewModel {
             }
 
             let remainingIDs = Set(existingRecords.map(\.localIdentifier)).subtracting(staleRecords.map(\.localIdentifier))
-            let toSync = assetsSnapshot.filter { !remainingIDs.contains($0.localIdentifier) }
+            let toSync = assetsSnapshot.filter { !remainingIDs.contains($0.id) }
             let total = toSync.count
             await MainActor.run { viewModel.metadataSyncTotal = total }
 
             var insertCount = 0
-            for asset in toSync {
+            for photoAsset in toSync {
+                guard let asset = phAssets[photoAsset.id] else { continue }
                 let resources = PHAssetResource.assetResources(for: asset)
                 let fileSize: Int64
                 if let resource = resources.first,
@@ -308,6 +344,7 @@ final class PhotoGridViewModel {
             updateFilteredAssets()
         }
         isSyncingMetadata = false
+        #endif
     }
 
     func refreshMetadata() async {
@@ -340,7 +377,7 @@ final class PhotoGridViewModel {
             lastClickedIdentifier = identifier
         } else if modifiers.contains(.shift), let lastClicked = lastClickedIdentifier {
             // Shift+Click: select contiguous range from anchor to target
-            let identifiers = filteredAssets.map(\.localIdentifier)
+            let identifiers = filteredAssets.map(\.id)
             if let rangeSet = Self.rangeSelection(in: identifiers, from: lastClicked, to: identifier) {
                 selectedIdentifiers = rangeSet
             } else {
@@ -362,17 +399,21 @@ final class PhotoGridViewModel {
     }
 
     func exportAssets(to directoryURL: URL) async {
+        #if SCREENSHOTS
+        exportResult = ExportResult(successCount: 0, failureCount: 0, skippedCount: 0)
+        return
+        #else
         guard !isExporting else { return }
 
-        let assetsToExport = selectedAssets
-        guard !assetsToExport.isEmpty else {
+        let selectedPhAssets = selectedAssets.compactMap { phAssetsByIdentifier[$0.id] }
+        guard !selectedPhAssets.isEmpty else {
             exportResult = ExportResult(successCount: 0, failureCount: 0, skippedCount: 0)
             return
         }
 
         isExporting = true
         exportProgress = 0
-        exportTotal = assetsToExport.count
+        exportTotal = selectedPhAssets.count
         exportResult = nil
 
         let service = self.service
@@ -383,7 +424,7 @@ final class PhotoGridViewModel {
             var failureCount = 0
             var skippedCount = 0
 
-            for asset in assetsToExport {
+            for asset in selectedPhAssets {
                 let resources = PHAssetResource.assetResources(for: asset)
                 guard let resource = resources.first else {
                     failureCount += 1
@@ -420,6 +461,7 @@ final class PhotoGridViewModel {
 
         isExporting = false
         exportResult = result
+        #endif
     }
 
     func openInPhotos(identifier: String) {
@@ -443,7 +485,7 @@ final class PhotoGridViewModel {
 
     func loadFullscreenImage() async {
         guard let identifier = fullscreenAssetIdentifier,
-              let asset = filteredAssets.first(where: { $0.localIdentifier == identifier }) else {
+              let asset = filteredAssets.first(where: { $0.id == identifier }) else {
             isLoadingFullscreenImage = false
             return
         }
@@ -453,8 +495,24 @@ final class PhotoGridViewModel {
         let height = min(CGFloat(asset.pixelHeight), maxDimension)
         let targetSize = CGSize(width: width, height: height)
 
+        #if SCREENSHOTS
+        let index = filteredAssets.firstIndex(where: { $0.id == identifier }) ?? 0
+        let image = DemoDataProvider.generateGradientImage(
+            size: targetSize,
+            identifier: identifier,
+            index: index
+        )
+        guard fullscreenAssetIdentifier == identifier else { return }
+        fullscreenImage = image
+        isLoadingFullscreenImage = false
+        #else
+        guard let phAsset = phAssetsByIdentifier[identifier] else {
+            isLoadingFullscreenImage = false
+            return
+        }
+
         let image = await service.requestImage(
-            for: asset,
+            for: phAsset,
             targetSize: targetSize,
             contentMode: .aspectFit,
             options: nil
@@ -464,11 +522,12 @@ final class PhotoGridViewModel {
         guard fullscreenAssetIdentifier == identifier else { return }
         fullscreenImage = image
         isLoadingFullscreenImage = false
+        #endif
     }
 
     func navigateFullscreen(direction: FullscreenNavigationDirection) {
         guard let current = fullscreenAssetIdentifier else { return }
-        let identifiers = filteredAssets.map(\.localIdentifier)
+        let identifiers = filteredAssets.map(\.id)
         if let next = Self.navigatedIdentifier(in: identifiers, from: current, direction: direction) {
             openFullscreen(identifier: next)
         }
@@ -499,38 +558,38 @@ final class PhotoGridViewModel {
     }
 
     func selectAll() {
-        selectedIdentifiers = Set(filteredAssets.map(\.localIdentifier))
+        selectedIdentifiers = Set(filteredAssets.map(\.id))
     }
 
     var selectedCount: Int {
         guard !selectedIdentifiers.isEmpty else { return 0 }
-        let visibleIDs = Set(filteredAssets.map(\.localIdentifier))
+        let visibleIDs = Set(filteredAssets.map(\.id))
         return selectedIdentifiers.intersection(visibleIDs).count
     }
 
-    var selectedAssets: [PHAsset] {
+    var selectedAssets: [PhotoAsset] {
         guard !selectedIdentifiers.isEmpty else { return [] }
-        return filteredAssets.filter { selectedIdentifiers.contains($0.localIdentifier) }
+        return filteredAssets.filter { selectedIdentifiers.contains($0.id) }
     }
 
     var photoCount: Int {
-        filteredAssets.filter { $0.mediaType == .image }.count
+        filteredAssets.filter { !$0.isVideo }.count
     }
 
     var videoCount: Int {
-        filteredAssets.filter { $0.mediaType == .video }.count
+        filteredAssets.filter { $0.isVideo }.count
     }
 
     var totalFileSize: Int64 {
-        let visibleIDs = Set(filteredAssets.map(\.localIdentifier))
+        let visibleIDs = Set(filteredAssets.map(\.id))
         return metadataCache.values
             .filter { visibleIDs.contains($0.localIdentifier) }
             .reduce(0) { $0 + $1.fileSize }
     }
 
     var exportTitle: String {
-        let photoCount = selectedAssets.filter { $0.mediaType == .image }.count
-        let videoCount = selectedAssets.filter { $0.mediaType == .video }.count
+        let photoCount = selectedAssets.filter { !$0.isVideo }.count
+        let videoCount = selectedAssets.filter { $0.isVideo }.count
         return Self.exportMenuTitle(photoCount: photoCount, videoCount: videoCount)
     }
 
@@ -547,17 +606,17 @@ final class PhotoGridViewModel {
         }
     }
 
-    private(set) var filteredAssets: [PHAsset] = []
+    private(set) var filteredAssets: [PhotoAsset] = []
 
     private func updateFilteredAssets() {
-        let filtered: [PHAsset]
+        let filtered: [PhotoAsset]
         switch mediaFilter {
         case .all:
             filtered = assets
         case .photosOnly:
-            filtered = assets.filter { $0.mediaType == .image }
+            filtered = assets.filter { !$0.isVideo }
         case .videosOnly:
-            filtered = assets.filter { $0.mediaType == .video }
+            filtered = assets.filter { $0.isVideo }
         }
 
         // The fetch already returns assets sorted by creationDate descending,
@@ -601,8 +660,8 @@ final class PhotoGridViewModel {
                 case .duration:
                     result = a.duration < b.duration
                 case .fileSize:
-                    let sizeA = fileSizes?[a.localIdentifier] ?? 0
-                    let sizeB = fileSizes?[b.localIdentifier] ?? 0
+                    let sizeA = fileSizes?[a.id] ?? 0
+                    let sizeB = fileSizes?[b.id] ?? 0
                     result = sizeA < sizeB
                 }
                 return order == .ascending ? result : !result
@@ -630,4 +689,61 @@ final class PhotoGridViewModel {
             return .denied
         }
     }
+
+    // MARK: - Demo mode
+
+    #if SCREENSHOTS
+    static func demoViewModel() -> PhotoGridViewModel {
+        let viewModel = PhotoGridViewModel(service: DemoPhotoLibraryService())
+        viewModel.authorizationState = .authorized
+
+        let demoAssets = DemoDataProvider.generateAssets()
+        viewModel.assets = demoAssets
+        viewModel.filteredAssets = demoAssets
+
+        DemoDataProvider.populateThumbnailCache(
+            viewModel.thumbnailCache,
+            for: demoAssets,
+            size: thumbnailSize
+        )
+
+        // Create in-memory ModelContainer with demo metadata
+        let schema = Schema(versionedSchema: MediaMetadataSchemaV1.self)
+        let config = ModelConfiguration(isStoredInMemoryOnly: true)
+        if let container = try? ModelContainer(for: schema, configurations: [config]) {
+            viewModel.modelContainer = container
+            let context = ModelContext(container)
+            var cache: [String: MediaMetadata] = [:]
+            for (index, asset) in demoAssets.enumerated() {
+                // Realistic file sizes: photos 2-12 MB, videos 20-120 MB
+                let fileSize: Int64 = asset.isVideo
+                    ? Int64((index + 1) * 10_000_000 + 20_000_000)
+                    : Int64((index + 1) * 500_000 + 2_000_000)
+                let metadata = MediaMetadata(
+                    localIdentifier: asset.id,
+                    fileSize: fileSize,
+                    creationDate: asset.creationDate,
+                    duration: asset.duration,
+                    latitude: nil,
+                    longitude: nil
+                )
+                context.insert(metadata)
+                cache[asset.id] = metadata
+            }
+            try? context.save()
+            viewModel.metadataCache = cache
+        }
+
+        return viewModel
+    }
+    #endif
+
+    // MARK: - Testing
+
+    #if DEBUG
+    func setAssetsForTesting(_ testAssets: [PhotoAsset]) {
+        assets = testAssets
+        updateFilteredAssets()
+    }
+    #endif
 }

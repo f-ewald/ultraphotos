@@ -6,16 +6,15 @@
 //
 
 import SwiftUI
-import Photos
 
 struct PhotoThumbnailView: View {
-    let asset: PHAsset
+    let asset: PhotoAsset
     @Bindable var viewModel: PhotoGridViewModel
     let size: CGFloat
     @State private var image: NSImage?
 
     private var isSelected: Bool {
-        viewModel.selectedIdentifiers.contains(asset.localIdentifier)
+        viewModel.selectedIdentifiers.contains(asset.id)
     }
 
     var body: some View {
@@ -50,7 +49,7 @@ struct PhotoThumbnailView: View {
                 }
                 Spacer()
                 HStack {
-                    if asset.mediaType == .video {
+                    if asset.isVideo {
                         Text(formattedDuration(asset.duration))
                             .font(.caption2)
                             .fontWeight(.semibold)
@@ -60,7 +59,7 @@ struct PhotoThumbnailView: View {
                             .background(.black.opacity(0.7), in: RoundedRectangle(cornerRadius: 4))
                     }
                     Spacer()
-                    if let cached = viewModel.metadataCache[asset.localIdentifier] {
+                    if let cached = viewModel.metadataCache[asset.id] {
                         Text(formattedFileSize(cached.fileSize))
                             .font(.caption2)
                             .fontWeight(.semibold)
@@ -86,23 +85,23 @@ struct PhotoThumbnailView: View {
         .contentShape(Rectangle())
         .contextMenu {
             Button("Open in Apple Photos") {
-                viewModel.handleThumbnailClick(identifier: asset.localIdentifier, modifiers: [])
-                viewModel.openInPhotos(identifier: asset.localIdentifier)
+                viewModel.handleThumbnailClick(identifier: asset.id, modifiers: [])
+                viewModel.openInPhotos(identifier: asset.id)
             }
         }
         .onTapGesture(count: 2) {
-            viewModel.openFullscreen(identifier: asset.localIdentifier)
+            viewModel.openFullscreen(identifier: asset.id)
         }
         .onTapGesture(count: 1) {
             let modifiers = NSApp.currentEvent?.modifierFlags
                 .intersection(.deviceIndependentFlagsMask) ?? []
             viewModel.handleThumbnailClick(
-                identifier: asset.localIdentifier,
+                identifier: asset.id,
                 modifiers: modifiers
             )
         }
         .task {
-            image = await viewModel.loadThumbnail(for: asset)
+            image = await viewModel.loadThumbnail(for: asset.id)
         }
     }
 

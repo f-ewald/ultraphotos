@@ -1,0 +1,25 @@
+PROJECT = ultraphotos.xcodeproj
+SCHEME = ultraphotos
+
+.PHONY: build build-release build-screenshots test test-unit test-ui clean
+
+build:
+	xcodebuild -project $(PROJECT) -scheme $(SCHEME) -configuration Debug build
+
+build-release:
+	xcodebuild -project $(PROJECT) -scheme $(SCHEME) -configuration Release build
+
+build-screenshots:
+	xcodebuild -project $(PROJECT) -scheme $(SCHEME) -configuration Debug \
+		SWIFT_ACTIVE_COMPILATION_CONDITIONS='DEBUG SCREENSHOTS' build
+
+test: test-unit test-ui
+
+test-unit:
+	xcodebuild -project $(PROJECT) -scheme $(SCHEME) -only-testing:ultraphotosTests test
+
+test-ui:
+	xcodebuild -project $(PROJECT) -scheme $(SCHEME) -only-testing:ultraphotosUITests test
+
+clean:
+	xcodebuild -project $(PROJECT) -scheme $(SCHEME) clean

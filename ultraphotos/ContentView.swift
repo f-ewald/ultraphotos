@@ -37,7 +37,11 @@ extension FocusedValues {
 
 struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
+    #if SCREENSHOTS
+    @State private var viewModel = PhotoGridViewModel.demoViewModel()
+    #else
     @State private var viewModel = PhotoGridViewModel()
+    #endif
     @State private var thumbnailSize: CGFloat = 150
 
     private var columns: [GridItem] {
@@ -79,6 +83,7 @@ struct ContentView: View {
                             Image(systemName: "photo")
                                 .imageScale(.large)
                         }
+                        .padding(.horizontal, 8)
                     }
                     ToolbarItem {
                         Picker("Sort By", selection: Bindable(viewModel).sortOption) {
@@ -201,12 +206,17 @@ struct ContentView: View {
             }
         }
         .task {
+            #if SCREENSHOTS
+            // Demo data is already populated by demoViewModel()
+            viewModel.configure(modelContainer: modelContext.container)
+            #else
             viewModel.configure(modelContainer: modelContext.container)
             if viewModel.authorizationState == .notDetermined {
                 await viewModel.requestAuthorization()
             } else if viewModel.authorizationState == .authorized || viewModel.authorizationState == .limited {
                 await viewModel.fetchAssets()
             }
+            #endif
         }
     }
 
@@ -242,7 +252,7 @@ struct ContentView: View {
                     .padding(.top, 100)
             } else {
                 LazyVGrid(columns: columns, spacing: 4) {
-                    ForEach(viewModel.filteredAssets, id: \.localIdentifier) { asset in
+                    ForEach(viewModel.filteredAssets) { asset in
                         PhotoThumbnailView(asset: asset, viewModel: viewModel, size: thumbnailSize)
                     }
                 }
