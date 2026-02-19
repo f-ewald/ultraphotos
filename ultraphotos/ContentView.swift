@@ -202,7 +202,6 @@ struct ContentView: View {
         }
         .task {
             viewModel.configure(modelContainer: modelContext.container)
-            viewModel.checkAuthorizationStatus()
             if viewModel.authorizationState == .notDetermined {
                 await viewModel.requestAuthorization()
             } else if viewModel.authorizationState == .authorized || viewModel.authorizationState == .limited {

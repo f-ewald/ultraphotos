@@ -141,6 +141,7 @@ final class PhotoGridViewModel {
     init(service: PhotoLibraryServing = PhotoLibraryService()) {
         self.service = service
         thumbnailCache.countLimit = 300
+        authorizationState = Self.mapStatus(service.authorizationStatus(for: .readWrite))
     }
 
     func configure(modelContainer: ModelContainer) {
@@ -149,12 +150,12 @@ final class PhotoGridViewModel {
 
     func checkAuthorizationStatus() {
         let status = service.authorizationStatus(for: .readWrite)
-        authorizationState = mapStatus(status)
+        authorizationState = Self.mapStatus(status)
     }
 
     func requestAuthorization() async {
         let status = await service.requestAuthorization(for: .readWrite)
-        authorizationState = mapStatus(status)
+        authorizationState = Self.mapStatus(status)
 
         if authorizationState == .authorized || authorizationState == .limited {
             await fetchAssets()
@@ -613,7 +614,7 @@ final class PhotoGridViewModel {
         }
     }
 
-    private func mapStatus(_ status: PHAuthorizationStatus) -> PhotoAuthorizationState {
+    private static func mapStatus(_ status: PHAuthorizationStatus) -> PhotoAuthorizationState {
         switch status {
         case .notDetermined:
             return .notDetermined
