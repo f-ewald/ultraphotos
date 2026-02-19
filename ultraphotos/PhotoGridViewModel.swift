@@ -409,6 +409,13 @@ final class PhotoGridViewModel {
         exportResult = result
     }
 
+    func openInPhotos(identifier: String) {
+        let uuid = identifier.components(separatedBy: "/").first ?? identifier
+        if let url = URL(string: "photos-navigation://show-asset?localIdentifier=\(uuid)") {
+            NSWorkspace.shared.open(url)
+        }
+    }
+
     func clearSelection() {
         selectedIdentifiers.removeAll()
         lastClickedIdentifier = nil

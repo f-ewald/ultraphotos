@@ -85,6 +85,12 @@ struct PhotoThumbnailView: View {
             }
         }
         .contentShape(Rectangle())
+        .contextMenu {
+            Button("Open in Apple Photos") {
+                viewModel.handleThumbnailClick(identifier: asset.localIdentifier, modifiers: [])
+                viewModel.openInPhotos(identifier: asset.localIdentifier)
+            }
+        }
         .onTapGesture {
             let modifiers = NSApp.currentEvent?.modifierFlags
                 .intersection(.deviceIndependentFlagsMask) ?? []
