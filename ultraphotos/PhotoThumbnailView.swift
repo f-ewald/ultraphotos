@@ -39,7 +39,7 @@ struct PhotoThumbnailView: View {
                 HStack {
                     Spacer()
                     if let date = asset.creationDate {
-                        Text(date, style: .date)
+                        Text(date.formatted(.dateTime.month(.twoDigits).day(.twoDigits).year(.defaultDigits)))
                             .font(.caption2)
                             .fontWeight(.semibold)
                             .foregroundStyle(.white)
@@ -91,7 +91,10 @@ struct PhotoThumbnailView: View {
                 viewModel.openInPhotos(identifier: asset.localIdentifier)
             }
         }
-        .onTapGesture {
+        .onTapGesture(count: 2) {
+            viewModel.openFullscreen(identifier: asset.localIdentifier)
+        }
+        .onTapGesture(count: 1) {
             let modifiers = NSApp.currentEvent?.modifierFlags
                 .intersection(.deviceIndependentFlagsMask) ?? []
             viewModel.handleThumbnailClick(

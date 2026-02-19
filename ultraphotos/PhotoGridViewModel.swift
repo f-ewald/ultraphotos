@@ -93,6 +93,11 @@ struct ExportResult: Equatable {
     let skippedCount: Int
 }
 
+enum FullscreenNavigationDirection {
+    case previous
+    case next
+}
+
 @Observable
 final class PhotoGridViewModel {
     static let thumbnailSize = CGSize(width: 300, height: 300)
@@ -121,6 +126,13 @@ final class PhotoGridViewModel {
     private(set) var exportProgress: Int = 0
     private(set) var exportTotal: Int = 0
     private(set) var exportResult: ExportResult?
+    private(set) var fullscreenAssetIdentifier: String?
+    private(set) var fullscreenImage: NSImage?
+    private(set) var isLoadingFullscreenImage = false
+
+    var isFullscreenActive: Bool {
+        fullscreenAssetIdentifier != nil
+    }
 
     private var modelContainer: ModelContainer?
     private let service: PhotoLibraryServing
@@ -416,6 +428,70 @@ final class PhotoGridViewModel {
         }
     }
 
+    func openFullscreen(identifier: String) {
+        fullscreenAssetIdentifier = identifier
+        fullscreenImage = nil
+        isLoadingFullscreenImage = true
+    }
+
+    func closeFullscreen() {
+        fullscreenAssetIdentifier = nil
+        fullscreenImage = nil
+        isLoadingFullscreenImage = false
+    }
+
+    func loadFullscreenImage() async {
+        guard let identifier = fullscreenAssetIdentifier,
+              let asset = filteredAssets.first(where: { $0.localIdentifier == identifier }) else {
+            isLoadingFullscreenImage = false
+            return
+        }
+
+        let maxDimension: CGFloat = 4096
+        let width = min(CGFloat(asset.pixelWidth), maxDimension)
+        let height = min(CGFloat(asset.pixelHeight), maxDimension)
+        let targetSize = CGSize(width: width, height: height)
+
+        let image = await service.requestImage(
+            for: asset,
+            targetSize: targetSize,
+            contentMode: .aspectFit,
+            options: nil
+        )
+
+        // Check the identifier hasn't changed during the async load
+        guard fullscreenAssetIdentifier == identifier else { return }
+        fullscreenImage = image
+        isLoadingFullscreenImage = false
+    }
+
+    func navigateFullscreen(direction: FullscreenNavigationDirection) {
+        guard let current = fullscreenAssetIdentifier else { return }
+        let identifiers = filteredAssets.map(\.localIdentifier)
+        if let next = Self.navigatedIdentifier(in: identifiers, from: current, direction: direction) {
+            openFullscreen(identifier: next)
+        }
+    }
+
+    static func navigatedIdentifier(
+        in identifiers: [String],
+        from current: String,
+        direction: FullscreenNavigationDirection
+    ) -> String? {
+        guard !identifiers.isEmpty,
+              let index = identifiers.firstIndex(of: current) else {
+            return nil
+        }
+        switch direction {
+        case .next:
+            let nextIndex = (index + 1) % identifiers.count
+            return identifiers[nextIndex]
+        case .previous:
+            let prevIndex = (index - 1 + identifiers.count) % identifiers.count
+            return identifiers[prevIndex]
+        }
+    }
+
     func clearSelection() {
         selectedIdentifiers.removeAll()
         lastClickedIdentifier = nil
@@ -434,6 +510,21 @@ final class PhotoGridViewModel {
     var selectedAssets: [PHAsset] {
         guard !selectedIdentifiers.isEmpty else { return [] }
         return filteredAssets.filter { selectedIdentifiers.contains($0.localIdentifier) }
+    }
+
+    var photoCount: Int {
+        filteredAssets.filter { $0.mediaType == .image }.count
+    }
+
+    var videoCount: Int {
+        filteredAssets.filter { $0.mediaType == .video }.count
+    }
+
+    var totalFileSize: Int64 {
+        let visibleIDs = Set(filteredAssets.map(\.localIdentifier))
+        return metadataCache.values
+            .filter { visibleIDs.contains($0.localIdentifier) }
+            .reduce(0) { $0 + $1.fileSize }
     }
 
     var exportTitle: String {

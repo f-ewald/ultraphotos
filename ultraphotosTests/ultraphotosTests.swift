@@ -642,4 +642,119 @@ struct PhotoGridViewModelTests {
         #expect(viewModel.isExporting == false)
         #expect(viewModel.exportResult == ExportResult(successCount: 0, failureCount: 0, skippedCount: 0))
     }
+
+    // MARK: - Fullscreen state tests
+
+    @Test func fullscreenIsInactiveInitially() {
+        let mock = MockPhotoLibraryService()
+        let viewModel = PhotoGridViewModel(service: mock)
+
+        #expect(viewModel.fullscreenAssetIdentifier == nil)
+        #expect(viewModel.fullscreenImage == nil)
+        #expect(viewModel.isLoadingFullscreenImage == false)
+        #expect(viewModel.isFullscreenActive == false)
+    }
+
+    @Test func openFullscreenSetsIdentifierAndLoading() {
+        let mock = MockPhotoLibraryService()
+        let viewModel = PhotoGridViewModel(service: mock)
+
+        viewModel.openFullscreen(identifier: "photo-1")
+
+        #expect(viewModel.fullscreenAssetIdentifier == "photo-1")
+        #expect(viewModel.isLoadingFullscreenImage == true)
+        #expect(viewModel.fullscreenImage == nil)
+        #expect(viewModel.isFullscreenActive == true)
+    }
+
+    @Test func closeFullscreenClearsState() {
+        let mock = MockPhotoLibraryService()
+        let viewModel = PhotoGridViewModel(service: mock)
+
+        viewModel.openFullscreen(identifier: "photo-1")
+        viewModel.closeFullscreen()
+
+        #expect(viewModel.fullscreenAssetIdentifier == nil)
+        #expect(viewModel.fullscreenImage == nil)
+        #expect(viewModel.isLoadingFullscreenImage == false)
+        #expect(viewModel.isFullscreenActive == false)
+    }
+
+    @Test func openFullscreenClearsPreviousImage() {
+        let mock = MockPhotoLibraryService()
+        let viewModel = PhotoGridViewModel(service: mock)
+
+        viewModel.openFullscreen(identifier: "photo-1")
+        // Simulate that an image was loaded
+        viewModel.openFullscreen(identifier: "photo-2")
+
+        #expect(viewModel.fullscreenAssetIdentifier == "photo-2")
+        #expect(viewModel.fullscreenImage == nil)
+        #expect(viewModel.isLoadingFullscreenImage == true)
+    }
+
+    // MARK: - navigatedIdentifier static helper tests
+
+    @Test func navigatedIdentifierNextWrapsAround() {
+        let result = PhotoGridViewModel.navigatedIdentifier(
+            in: ["a", "b", "c"],
+            from: "c",
+            direction: .next
+        )
+        #expect(result == "a")
+    }
+
+    @Test func navigatedIdentifierPreviousWrapsAround() {
+        let result = PhotoGridViewModel.navigatedIdentifier(
+            in: ["a", "b", "c"],
+            from: "a",
+            direction: .previous
+        )
+        #expect(result == "c")
+    }
+
+    @Test func navigatedIdentifierNextMiddle() {
+        let result = PhotoGridViewModel.navigatedIdentifier(
+            in: ["a", "b", "c"],
+            from: "a",
+            direction: .next
+        )
+        #expect(result == "b")
+    }
+
+    @Test func navigatedIdentifierPreviousMiddle() {
+        let result = PhotoGridViewModel.navigatedIdentifier(
+            in: ["a", "b", "c"],
+            from: "c",
+            direction: .previous
+        )
+        #expect(result == "b")
+    }
+
+    @Test func navigatedIdentifierMissingReturnsNil() {
+        let result = PhotoGridViewModel.navigatedIdentifier(
+            in: ["a", "b", "c"],
+            from: "z",
+            direction: .next
+        )
+        #expect(result == nil)
+    }
+
+    @Test func navigatedIdentifierEmptyListReturnsNil() {
+        let result = PhotoGridViewModel.navigatedIdentifier(
+            in: [],
+            from: "a",
+            direction: .next
+        )
+        #expect(result == nil)
+    }
+
+    @Test func navigatedIdentifierSingleElement() {
+        let result = PhotoGridViewModel.navigatedIdentifier(
+            in: ["a"],
+            from: "a",
+            direction: .next
+        )
+        #expect(result == "a")
+    }
 }

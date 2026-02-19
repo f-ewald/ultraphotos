@@ -115,6 +115,11 @@ struct ContentView: View {
         .focusedSceneValue(\.exportAction) { [viewModel] url in
             Task { await viewModel.exportAssets(to: url) }
         }
+        .overlay {
+            if viewModel.isFullscreenActive {
+                FullscreenImageView(viewModel: viewModel)
+            }
+        }
         .overlay(alignment: .topLeading) {
             if viewModel.isExporting {
                 HStack(spacing: 8) {
@@ -165,15 +170,28 @@ struct ContentView: View {
                                 .font(.callout)
                                 .monospacedDigit()
                         }
+
                         Spacer()
-                        if viewModel.selectedCount > 0 {
-                            Text("\(viewModel.selectedCount) of \(viewModel.filteredAssets.count) selected")
+
+                        HStack(spacing: 12) {
+                            if viewModel.selectedCount > 0 {
+                                Text("\(viewModel.selectedCount) of \(viewModel.filteredAssets.count) selected")
+                                    .foregroundStyle(.secondary)
+                                    .font(.callout)
+                            }
+
+                            Label("\(viewModel.photoCount)", systemImage: "photo")
                                 .foregroundStyle(.secondary)
                                 .font(.callout)
-                        } else {
-                            Text("\(viewModel.filteredAssets.count) items")
+
+                            Label("\(viewModel.videoCount)", systemImage: "video")
                                 .foregroundStyle(.secondary)
                                 .font(.callout)
+
+                            Text(ByteCountFormatter.string(fromByteCount: viewModel.totalFileSize, countStyle: .file))
+                                .foregroundStyle(.secondary)
+                                .font(.callout)
+                                .monospacedDigit()
                         }
                     }
                     .padding(.horizontal)
@@ -230,6 +248,18 @@ struct ContentView: View {
                     }
                 }
                 .padding(4)
+
+                VStack(spacing: 4) {
+                    Image(nsImage: NSApp.applicationIconImage)
+                        .resizable()
+                        .frame(width: 32, height: 32)
+                    Text(appVersionString)
+                        .foregroundStyle(.tertiary)
+                        .font(.caption)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.top, 16)
+                .padding(.bottom, 8)
             }
         }
         .background {
@@ -238,7 +268,11 @@ struct ContentView: View {
                 .hidden()
         }
         .onKeyPress(.escape) {
-            viewModel.clearSelection()
+            if viewModel.isFullscreenActive {
+                viewModel.closeFullscreen()
+            } else {
+                viewModel.clearSelection()
+            }
             return .handled
         }
     }
@@ -261,6 +295,12 @@ struct ContentView: View {
             .buttonStyle(.borderedProminent)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private var appVersionString: String {
+        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "?"
+        let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "?"
+        return "v\(version) (\(build))"
     }
 
     private func exportResultMessage(_ result: ExportResult) -> String {
