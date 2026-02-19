@@ -1,0 +1,79 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <clipPath id="squircle">
+      <rect x="0" y="0" width="1024" height="1024" rx="225" ry="225"/>
+    </clipPath>
+
+    <linearGradient id="bgGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#4F46E5"/>
+      <stop offset="100%" stop-color="#9333EA"/>
+    </linearGradient>
+
+    <radialGradient id="innerGlow" cx="0.5" cy="0.4" r="0.6">
+      <stop offset="0%" stop-color="white" stop-opacity="0.18"/>
+      <stop offset="100%" stop-color="white" stop-opacity="0"/>
+    </radialGradient>
+
+    <linearGradient id="boltGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#FDE68A"/>
+      <stop offset="100%" stop-color="#F59E0B"/>
+    </linearGradient>
+  </defs>
+
+  <g clip-path="url(#squircle)">
+    <!-- Background -->
+    <rect x="0" y="0" width="1024" height="1024" fill="url(#bgGrad)"/>
+    <rect x="0" y="0" width="1024" height="1024" fill="url(#innerGlow)"/>
+
+    <!-- Grid lines -->
+    <g stroke="white" stroke-opacity="0.08" stroke-width="1.5">
+      <line x1="128" y1="0" x2="128" y2="1024"/>
+      <line x1="256" y1="0" x2="256" y2="1024"/>
+      <line x1="384" y1="0" x2="384" y2="1024"/>
+      <line x1="512" y1="0" x2="512" y2="1024"/>
+      <line x1="640" y1="0" x2="640" y2="1024"/>
+      <line x1="768" y1="0" x2="768" y2="1024"/>
+      <line x1="896" y1="0" x2="896" y2="1024"/>
+      <line x1="0" y1="128" x2="1024" y2="128"/>
+      <line x1="0" y1="256" x2="1024" y2="256"/>
+      <line x1="0" y1="384" x2="1024" y2="384"/>
+      <line x1="0" y1="512" x2="1024" y2="512"/>
+      <line x1="0" y1="640" x2="1024" y2="640"/>
+      <line x1="0" y1="768" x2="1024" y2="768"/>
+      <line x1="0" y1="896" x2="1024" y2="896"/>
+    </g>
+
+    <!-- Photo stack — three offset rounded rectangles -->
+
+    <!-- Back photo: offset top-left, rotated -8° -->
+    <rect x="220" y="290" width="480" height="350" rx="24" ry="24"
+          transform="rotate(-8, 460, 465)"
+          fill="white" fill-opacity="0.12"
+          stroke="white" stroke-opacity="0.35" stroke-width="3"/>
+
+    <!-- Middle photo: center, rotated 5° -->
+    <rect x="260" y="330" width="480" height="350" rx="24" ry="24"
+          transform="rotate(5, 500, 505)"
+          fill="white" fill-opacity="0.20"
+          stroke="white" stroke-opacity="0.50" stroke-width="3"/>
+
+    <!-- Top photo: offset bottom-right, straight -->
+    <rect x="300" y="370" width="480" height="350" rx="24" ry="24"
+          fill="white" fill-opacity="0.28"
+          stroke="white" stroke-opacity="0.70" stroke-width="4"/>
+
+    <!-- Lightning bolt — top-right -->
+    <g transform="translate(720, 160)">
+      <polygon points="30,0 0,50 20,50 -5,100 58,40 34,40 62,0"
+               fill="url(#boltGrad)" stroke="#F59E0B" stroke-width="4"
+               stroke-linejoin="round" stroke-linecap="round"/>
+    </g>
+
+    <!-- Export arrow — bottom-right -->
+    <g transform="translate(725, 730)" stroke="white" stroke-opacity="0.8" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" fill="none">
+      <line x1="0" y1="65" x2="65" y2="0"/>
+      <polyline points="28,0 65,0 65,37"/>
+      <path d="M0,65 L0,82 Q0,95 13,95 L82,95 Q95,95 95,82 L95,65"/>
+    </g>
+  </g>
+</svg>
