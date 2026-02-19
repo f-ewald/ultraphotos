@@ -25,9 +25,9 @@ struct PhotoThumbnailView: View {
                     .resizable()
                     .aspectRatio(contentMode: .fill)
                     .frame(width: size, height: size)
-                    .clipped()
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
             } else {
-                Rectangle()
+                RoundedRectangle(cornerRadius: 10)
                     .fill(Color.gray.opacity(0.3))
                     .frame(width: size, height: size)
                     .overlay {
@@ -73,13 +73,12 @@ struct PhotoThumbnailView: View {
             }
             .padding(4)
         }
-        .cornerRadius(4)
         .overlay {
             if isSelected {
                 ZStack {
-                    RoundedRectangle(cornerRadius: 4)
+                    RoundedRectangle(cornerRadius: 10)
                         .fill(Color.accentColor.opacity(0.15))
-                    RoundedRectangle(cornerRadius: 4)
+                    RoundedRectangle(cornerRadius: 10)
                         .strokeBorder(Color.accentColor, lineWidth: 3)
                 }
             }

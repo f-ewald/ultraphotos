@@ -74,7 +74,7 @@ struct ContentView: View {
                         HStack(spacing: 4) {
                             Image(systemName: "photo")
                                 .imageScale(.small)
-                            Slider(value: $thumbnailSize, in: 60...300)
+                            Slider(value: $thumbnailSize, in: 100...300)
                                 .frame(width: 120)
                             Image(systemName: "photo")
                                 .imageScale(.large)
