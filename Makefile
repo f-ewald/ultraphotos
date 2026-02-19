@@ -2,7 +2,7 @@ PROJECT = ultraphotos.xcodeproj
 SCHEME = ultraphotos
 BUILD_DIR = build
 
-.PHONY: build build-release build-screenshots test test-unit test-ui clean
+.PHONY: build build-release build-screenshots resize-screenshots test test-unit test-ui clean
 
 build:
 	xcodebuild -project $(PROJECT) -scheme $(SCHEME) -configuration Debug build
@@ -23,6 +23,9 @@ test-unit:
 
 test-ui:
 	xcodebuild -project $(PROJECT) -scheme $(SCHEME) -only-testing:ultraphotosUITests test
+
+resize-screenshots:
+	swift scripts/resize_screenshots.swift
 
 clean:
 	xcodebuild -project $(PROJECT) -scheme $(SCHEME) clean
