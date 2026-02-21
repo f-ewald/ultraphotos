@@ -35,6 +35,10 @@ final class DemoPhotoLibraryService: PhotoLibraryServing {
     nonisolated func writeAssetResource(_ resource: PHAssetResource, toFileURL url: URL, options: PHAssetResourceRequestOptions?) async throws {
         // No-op in demo mode
     }
+
+    func deleteAssets(withIdentifiers identifiers: [String]) async throws {
+        // No-op in demo mode
+    }
 }
 
 #endif

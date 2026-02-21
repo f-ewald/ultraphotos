@@ -17,13 +17,16 @@ final class MockPhotoLibraryService: PhotoLibraryServing {
     var stubbedFetchResult: PHFetchResult<PHAsset> = PHFetchResult<PHAsset>()
     var stubbedImage: NSImage? = NSImage()
     var writeAssetResourceShouldThrow = false
+    var deleteAssetsShouldThrow = false
 
     var authorizationStatusCallCount = 0
     var requestAuthorizationCallCount = 0
     var fetchAssetsCallCount = 0
     var requestImageCallCount = 0
     var writeAssetResourceCallCount = 0
+    var deleteAssetsCallCount = 0
     var lastRequestedTargetSize: CGSize?
+    var lastDeletedIdentifiers: [String] = []
 
     func authorizationStatus(for accessLevel: PHAccessLevel) -> PHAuthorizationStatus {
         authorizationStatusCallCount += 1
@@ -55,6 +58,14 @@ final class MockPhotoLibraryService: PhotoLibraryServing {
         writeAssetResourceCallCount += 1
         if writeAssetResourceShouldThrow {
             throw NSError(domain: "MockError", code: 1, userInfo: [NSLocalizedDescriptionKey: "Mock write failure"])
+        }
+    }
+
+    func deleteAssets(withIdentifiers identifiers: [String]) async throws {
+        deleteAssetsCallCount += 1
+        lastDeletedIdentifiers = identifiers
+        if deleteAssetsShouldThrow {
+            throw NSError(domain: "MockError", code: 1, userInfo: [NSLocalizedDescriptionKey: "Mock delete failure"])
         }
     }
 }
@@ -894,5 +905,231 @@ struct PhotoGridViewModelTests {
 
         #expect(viewModel.selectedAssets.count == 1)
         #expect(viewModel.selectedAssets.first?.id == "a")
+    }
+
+    // MARK: - deleteMenuTitle tests
+
+    @Test func deleteMenuTitleNoSelection() {
+        #expect(PhotoGridViewModel.deleteMenuTitle(photoCount: 0, videoCount: 0) == "Delete")
+    }
+
+    @Test func deleteMenuTitleOnePhoto() {
+        #expect(PhotoGridViewModel.deleteMenuTitle(photoCount: 1, videoCount: 0) == "Delete 1 Photo")
+    }
+
+    @Test func deleteMenuTitleMultiplePhotos() {
+        #expect(PhotoGridViewModel.deleteMenuTitle(photoCount: 3, videoCount: 0) == "Delete 3 Photos")
+    }
+
+    @Test func deleteMenuTitleOneVideo() {
+        #expect(PhotoGridViewModel.deleteMenuTitle(photoCount: 0, videoCount: 1) == "Delete 1 Video")
+    }
+
+    @Test func deleteMenuTitleMultipleVideos() {
+        #expect(PhotoGridViewModel.deleteMenuTitle(photoCount: 0, videoCount: 5) == "Delete 5 Videos")
+    }
+
+    @Test func deleteMenuTitleMixed() {
+        #expect(PhotoGridViewModel.deleteMenuTitle(photoCount: 2, videoCount: 3) == "Delete 2 Photos and 3 Videos")
+    }
+
+    @Test func deleteMenuTitleMixedSingular() {
+        #expect(PhotoGridViewModel.deleteMenuTitle(photoCount: 1, videoCount: 1) == "Delete 1 Photo and 1 Video")
+    }
+
+    // MARK: - Delete state tests
+
+    @Test func isDeletingIsFalseInitially() {
+        let mock = MockPhotoLibraryService()
+        let viewModel = PhotoGridViewModel(service: mock)
+
+        #expect(viewModel.isDeleting == false)
+    }
+
+    @Test func deleteTitleReflectsSelectedAssets() {
+        let mock = MockPhotoLibraryService()
+        let viewModel = PhotoGridViewModel(service: mock)
+
+        let testAssets = [
+            PhotoAsset(id: "p1", creationDate: nil, isVideo: false, duration: 0, pixelWidth: 100, pixelHeight: 100),
+            PhotoAsset(id: "v1", creationDate: nil, isVideo: true, duration: 30, pixelWidth: 100, pixelHeight: 100),
+        ]
+        viewModel.setAssetsForTesting(testAssets)
+        viewModel.selectAll()
+
+        #expect(viewModel.deleteTitle == "Delete 1 Photo and 1 Video")
+    }
+
+    // MARK: - deleteAssets behavior tests
+
+    @Test func deleteAssetsCallsServiceForUnselectedItem() async {
+        let mock = MockPhotoLibraryService()
+        let viewModel = PhotoGridViewModel(service: mock)
+
+        let testAssets = [
+            PhotoAsset(id: "p1", creationDate: nil, isVideo: false, duration: 0, pixelWidth: 100, pixelHeight: 100),
+            PhotoAsset(id: "p2", creationDate: nil, isVideo: false, duration: 0, pixelWidth: 100, pixelHeight: 100),
+        ]
+        viewModel.setAssetsForTesting(testAssets)
+
+        // Select p1, then delete p2 (unselected) — p2 gets auto-selected, p1 deselected
+        viewModel.handleThumbnailClick(identifier: "p1", modifiers: [])
+        await viewModel.deleteAssets(for: "p2")
+
+        #expect(mock.deleteAssetsCallCount == 1)
+        #expect(mock.lastDeletedIdentifiers == ["p2"])
+        #expect(viewModel.assets.count == 1)
+        #expect(viewModel.assets.first?.id == "p1")
+    }
+
+    @Test func deleteAssetsDeletesAllSelectedItems() async {
+        let mock = MockPhotoLibraryService()
+        let viewModel = PhotoGridViewModel(service: mock)
+
+        let testAssets = [
+            PhotoAsset(id: "p1", creationDate: nil, isVideo: false, duration: 0, pixelWidth: 100, pixelHeight: 100),
+            PhotoAsset(id: "p2", creationDate: nil, isVideo: false, duration: 0, pixelWidth: 100, pixelHeight: 100),
+            PhotoAsset(id: "p3", creationDate: nil, isVideo: false, duration: 0, pixelWidth: 100, pixelHeight: 100),
+        ]
+        viewModel.setAssetsForTesting(testAssets)
+
+        viewModel.handleThumbnailClick(identifier: "p1", modifiers: [])
+        viewModel.handleThumbnailClick(identifier: "p2", modifiers: .command)
+
+        await viewModel.deleteAssets(for: "p1")
+
+        #expect(mock.deleteAssetsCallCount == 1)
+        #expect(Set(mock.lastDeletedIdentifiers) == Set(["p1", "p2"]))
+        #expect(viewModel.assets.count == 1)
+        #expect(viewModel.assets.first?.id == "p3")
+        #expect(viewModel.selectedIdentifiers.isEmpty)
+    }
+
+    @Test func deleteAssetsClearsLastClickedWhenDeleted() async {
+        let mock = MockPhotoLibraryService()
+        let viewModel = PhotoGridViewModel(service: mock)
+
+        let testAssets = [
+            PhotoAsset(id: "p1", creationDate: nil, isVideo: false, duration: 0, pixelWidth: 100, pixelHeight: 100),
+            PhotoAsset(id: "p2", creationDate: nil, isVideo: false, duration: 0, pixelWidth: 100, pixelHeight: 100),
+        ]
+        viewModel.setAssetsForTesting(testAssets)
+
+        viewModel.handleThumbnailClick(identifier: "p1", modifiers: [])
+        #expect(viewModel.lastClickedIdentifier == "p1")
+
+        await viewModel.deleteAssets(for: "p1")
+
+        #expect(viewModel.lastClickedIdentifier == nil)
+    }
+
+    @Test func deleteAssetsPreservesLastClickedWhenNotDeleted() async {
+        let mock = MockPhotoLibraryService()
+        let viewModel = PhotoGridViewModel(service: mock)
+
+        let testAssets = [
+            PhotoAsset(id: "p1", creationDate: nil, isVideo: false, duration: 0, pixelWidth: 100, pixelHeight: 100),
+            PhotoAsset(id: "p2", creationDate: nil, isVideo: false, duration: 0, pixelWidth: 100, pixelHeight: 100),
+            PhotoAsset(id: "p3", creationDate: nil, isVideo: false, duration: 0, pixelWidth: 100, pixelHeight: 100),
+        ]
+        viewModel.setAssetsForTesting(testAssets)
+
+        // Select p1 and p2, then delete for p1 (already selected) — lastClicked should
+        // be cleared since p1 is deleted
+        viewModel.handleThumbnailClick(identifier: "p1", modifiers: [])
+        viewModel.handleThumbnailClick(identifier: "p2", modifiers: .command)
+        #expect(viewModel.lastClickedIdentifier == "p2")
+
+        await viewModel.deleteAssets(for: "p1")
+
+        // p2 was also deleted, so lastClicked (p2) is cleared
+        #expect(viewModel.lastClickedIdentifier == nil)
+    }
+
+    @Test func deleteAssetsUpdatesFilteredAssets() async {
+        let mock = MockPhotoLibraryService()
+        let viewModel = PhotoGridViewModel(service: mock)
+
+        let testAssets = [
+            PhotoAsset(id: "p1", creationDate: nil, isVideo: false, duration: 0, pixelWidth: 100, pixelHeight: 100),
+            PhotoAsset(id: "v1", creationDate: nil, isVideo: true, duration: 30, pixelWidth: 100, pixelHeight: 100),
+        ]
+        viewModel.setAssetsForTesting(testAssets)
+
+        #expect(viewModel.filteredAssets.count == 2)
+
+        await viewModel.deleteAssets(for: "p1")
+
+        #expect(viewModel.filteredAssets.count == 1)
+        #expect(viewModel.filteredAssets.first?.id == "v1")
+    }
+
+    @Test func deleteAssetsHandlesServiceError() async {
+        let mock = MockPhotoLibraryService()
+        mock.deleteAssetsShouldThrow = true
+        let viewModel = PhotoGridViewModel(service: mock)
+
+        let testAssets = [
+            PhotoAsset(id: "p1", creationDate: nil, isVideo: false, duration: 0, pixelWidth: 100, pixelHeight: 100),
+            PhotoAsset(id: "p2", creationDate: nil, isVideo: false, duration: 0, pixelWidth: 100, pixelHeight: 100),
+        ]
+        viewModel.setAssetsForTesting(testAssets)
+
+        await viewModel.deleteAssets(for: "p1")
+
+        #expect(mock.deleteAssetsCallCount == 1)
+        #expect(viewModel.assets.count == 2)
+        #expect(viewModel.isDeleting == false)
+    }
+
+    @Test func deleteAssetsRemovesSelectionForDeletedItems() async {
+        let mock = MockPhotoLibraryService()
+        let viewModel = PhotoGridViewModel(service: mock)
+
+        let testAssets = [
+            PhotoAsset(id: "p1", creationDate: nil, isVideo: false, duration: 0, pixelWidth: 100, pixelHeight: 100),
+            PhotoAsset(id: "p2", creationDate: nil, isVideo: false, duration: 0, pixelWidth: 100, pixelHeight: 100),
+            PhotoAsset(id: "p3", creationDate: nil, isVideo: false, duration: 0, pixelWidth: 100, pixelHeight: 100),
+        ]
+        viewModel.setAssetsForTesting(testAssets)
+
+        // Select p1 and p3, then delete for p2 (unselected).
+        // With auto-select, p2 gets selected (p1 and p3 deselected), only p2 is deleted.
+        viewModel.handleThumbnailClick(identifier: "p1", modifiers: [])
+        viewModel.handleThumbnailClick(identifier: "p3", modifiers: .command)
+
+        await viewModel.deleteAssets(for: "p2")
+
+        // p2 was auto-selected and deleted; selection is now empty
+        #expect(viewModel.selectedIdentifiers.isEmpty)
+        #expect(viewModel.assets.count == 2)
+        #expect(viewModel.assets.map(\.id).contains("p1"))
+        #expect(viewModel.assets.map(\.id).contains("p3"))
+    }
+
+    @Test func deleteAssetsAutoSelectsUnselectedItem() async {
+        let mock = MockPhotoLibraryService()
+        let viewModel = PhotoGridViewModel(service: mock)
+
+        let testAssets = [
+            PhotoAsset(id: "A", creationDate: nil, isVideo: false, duration: 0, pixelWidth: 100, pixelHeight: 100),
+            PhotoAsset(id: "B", creationDate: nil, isVideo: false, duration: 0, pixelWidth: 100, pixelHeight: 100),
+            PhotoAsset(id: "C", creationDate: nil, isVideo: false, duration: 0, pixelWidth: 100, pixelHeight: 100),
+        ]
+        viewModel.setAssetsForTesting(testAssets)
+
+        // Select A, then right-click delete on B
+        viewModel.handleThumbnailClick(identifier: "A", modifiers: [])
+        #expect(viewModel.selectedIdentifiers == Set(["A"]))
+
+        await viewModel.deleteAssets(for: "B")
+
+        // B was auto-selected (A deselected), then B deleted
+        #expect(mock.deleteAssetsCallCount == 1)
+        #expect(mock.lastDeletedIdentifiers == ["B"])
+        #expect(viewModel.assets.count == 2)
+        #expect(viewModel.assets.map(\.id).contains("A"))
+        #expect(viewModel.assets.map(\.id).contains("C"))
+        #expect(viewModel.selectedIdentifiers.isEmpty)
     }
 }

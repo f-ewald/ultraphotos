@@ -19,6 +19,7 @@ protocol PhotoLibraryServing: Sendable {
         options: PHImageRequestOptions?
     ) async -> NSImage?
     nonisolated func writeAssetResource(_ resource: PHAssetResource, toFileURL url: URL, options: PHAssetResourceRequestOptions?) async throws
+    func deleteAssets(withIdentifiers identifiers: [String]) async throws
 }
 
 final class PhotoLibraryService: PhotoLibraryServing {
@@ -68,6 +69,18 @@ final class PhotoLibraryService: PhotoLibraryServing {
                     continuation.resume()
                 }
             }
+        }
+    }
+
+    func deleteAssets(withIdentifiers identifiers: [String]) async throws {
+        let fetchResult = PHAsset.fetchAssets(withLocalIdentifiers: identifiers, options: nil)
+        var assets: [PHAsset] = []
+        fetchResult.enumerateObjects { asset, _, _ in
+            assets.append(asset)
+        }
+        guard !assets.isEmpty else { return }
+        try await PHPhotoLibrary.shared().performChanges {
+            PHAssetChangeRequest.deleteAssets(assets as NSFastEnumeration)
         }
     }
 }

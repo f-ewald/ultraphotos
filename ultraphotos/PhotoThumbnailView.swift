@@ -5,6 +5,7 @@
 //  Created by Friedrich Ewald on 2/18/26.
 //
 
+import AppKit
 import SwiftUI
 
 struct PhotoThumbnailView: View {
@@ -83,10 +84,23 @@ struct PhotoThumbnailView: View {
             }
         }
         .contentShape(Rectangle())
+        .overlay {
+            RightClickSelectionView {
+                if !viewModel.selectedIdentifiers.contains(asset.id) {
+                    viewModel.handleThumbnailClick(identifier: asset.id, modifiers: [])
+                }
+            }
+        }
         .contextMenu {
             Button("Open in Apple Photos") {
                 viewModel.handleThumbnailClick(identifier: asset.id, modifiers: [])
                 viewModel.openInPhotos(identifier: asset.id)
+            }
+            Divider()
+            Button(role: .destructive) {
+                Task { await viewModel.deleteAssets(for: asset.id) }
+            } label: {
+                Label(deleteLabel, systemImage: "trash")
             }
         }
         .onTapGesture(count: 2) {
@@ -105,6 +119,13 @@ struct PhotoThumbnailView: View {
         }
     }
 
+    private var deleteLabel: String {
+        if isSelected && viewModel.selectedIdentifiers.count > 1 {
+            return viewModel.deleteTitle
+        }
+        return "Delete"
+    }
+
     private func formattedDuration(_ duration: TimeInterval) -> String {
         let totalSeconds = Int(duration)
         let minutes = totalSeconds / 60
@@ -114,5 +135,34 @@ struct PhotoThumbnailView: View {
 
     private func formattedFileSize(_ bytes: Int64) -> String {
         ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file)
+    }
+}
+
+/// Transparent overlay that detects right-clicks during hit testing and fires
+/// a callback before the SwiftUI context menu appears. Returns `nil` from
+/// `hitTest` so all events pass through to the underlying views.
+private struct RightClickSelectionView: NSViewRepresentable {
+    let onRightClick: () -> Void
+
+    func makeNSView(context: Context) -> RightClickNSView {
+        let view = RightClickNSView()
+        view.onRightClick = onRightClick
+        return view
+    }
+
+    func updateNSView(_ nsView: RightClickNSView, context: Context) {
+        nsView.onRightClick = onRightClick
+    }
+}
+
+class RightClickNSView: NSView {
+    var onRightClick: () -> Void = {}
+
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        if let event = NSApp.currentEvent, event.type == .rightMouseDown,
+           frame.contains(point) {
+            onRightClick()
+        }
+        return nil
     }
 }

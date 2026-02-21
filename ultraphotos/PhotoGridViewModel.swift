@@ -129,6 +129,7 @@ final class PhotoGridViewModel {
     private(set) var fullscreenAssetIdentifier: String?
     private(set) var fullscreenImage: NSImage?
     private(set) var isLoadingFullscreenImage = false
+    private(set) var isDeleting = false
 
     var isFullscreenActive: Bool {
         fullscreenAssetIdentifier != nil
@@ -471,6 +472,48 @@ final class PhotoGridViewModel {
         }
     }
 
+    func deleteAssets(for identifier: String) async {
+        guard !isDeleting else { return }
+
+        if !selectedIdentifiers.contains(identifier) {
+            handleThumbnailClick(identifier: identifier, modifiers: [])
+        }
+
+        let idsToDelete = Array(selectedIdentifiers)
+        guard !idsToDelete.isEmpty else { return }
+
+        #if SCREENSHOTS
+        removeDeletedAssets(Set(idsToDelete))
+        #else
+        isDeleting = true
+        do {
+            try await service.deleteAssets(withIdentifiers: idsToDelete)
+            removeDeletedAssets(Set(idsToDelete))
+        } catch {
+            // User cancelled deletion or system error — no action needed
+        }
+        isDeleting = false
+        #endif
+    }
+
+    private func removeDeletedAssets(_ deletedSet: Set<String>) {
+        assets.removeAll { deletedSet.contains($0.id) }
+        #if !SCREENSHOTS
+        for id in deletedSet {
+            phAssetsByIdentifier.removeValue(forKey: id)
+        }
+        #endif
+        selectedIdentifiers.subtract(deletedSet)
+        for id in deletedSet {
+            metadataCache.removeValue(forKey: id)
+            thumbnailCache.removeObject(forKey: id as NSString)
+        }
+        if let last = lastClickedIdentifier, deletedSet.contains(last) {
+            lastClickedIdentifier = nil
+        }
+        updateFilteredAssets()
+    }
+
     func openFullscreen(identifier: String) {
         fullscreenAssetIdentifier = identifier
         fullscreenImage = nil
@@ -593,6 +636,12 @@ final class PhotoGridViewModel {
         return Self.exportMenuTitle(photoCount: photoCount, videoCount: videoCount)
     }
 
+    var deleteTitle: String {
+        let photoCount = selectedAssets.filter { !$0.isVideo }.count
+        let videoCount = selectedAssets.filter { $0.isVideo }.count
+        return Self.deleteMenuTitle(photoCount: photoCount, videoCount: videoCount)
+    }
+
     static func exportMenuTitle(photoCount: Int, videoCount: Int) -> String {
         switch (photoCount, videoCount) {
         case (0, 0):
@@ -603,6 +652,19 @@ final class PhotoGridViewModel {
             return "Export \(v) \(v == 1 ? "Video" : "Videos")"
         case (let p, let v):
             return "Export \(p) \(p == 1 ? "Photo" : "Photos") and \(v) \(v == 1 ? "Video" : "Videos")"
+        }
+    }
+
+    static func deleteMenuTitle(photoCount: Int, videoCount: Int) -> String {
+        switch (photoCount, videoCount) {
+        case (0, 0):
+            return "Delete"
+        case (let p, 0):
+            return "Delete \(p) \(p == 1 ? "Photo" : "Photos")"
+        case (0, let v):
+            return "Delete \(v) \(v == 1 ? "Video" : "Videos")"
+        case (let p, let v):
+            return "Delete \(p) \(p == 1 ? "Photo" : "Photos") and \(v) \(v == 1 ? "Video" : "Videos")"
         }
     }
 
