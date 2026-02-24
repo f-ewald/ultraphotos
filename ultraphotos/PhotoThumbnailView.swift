@@ -103,16 +103,19 @@ struct PhotoThumbnailView: View {
                 Label(deleteLabel, systemImage: "trash")
             }
         }
-        .onTapGesture(count: 2) {
-            viewModel.openFullscreen(identifier: asset.id)
-        }
         .onTapGesture(count: 1) {
-            let modifiers = NSApp.currentEvent?.modifierFlags
+            let event = NSApp.currentEvent
+            let modifiers = event?.modifierFlags
                 .intersection(.deviceIndependentFlagsMask) ?? []
-            viewModel.handleThumbnailClick(
-                identifier: asset.id,
-                modifiers: modifiers
-            )
+
+            if event?.clickCount == 2 {
+                viewModel.openFullscreen(identifier: asset.id)
+            } else {
+                viewModel.handleThumbnailClick(
+                    identifier: asset.id,
+                    modifiers: modifiers
+                )
+            }
         }
         .task {
             image = await viewModel.loadThumbnail(for: asset.id)
@@ -159,10 +162,12 @@ class RightClickNSView: NSView {
     var onRightClick: () -> Void = {}
 
     override func hitTest(_ point: NSPoint) -> NSView? {
-        if let event = NSApp.currentEvent, event.type == .rightMouseDown,
-           frame.contains(point) {
-            onRightClick()
+        guard let event = NSApp.currentEvent,
+              event.type == .rightMouseDown,
+              frame.contains(point) else {
+            return nil
         }
+        onRightClick()
         return nil
     }
 }
