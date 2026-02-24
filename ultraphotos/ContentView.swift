@@ -229,7 +229,7 @@ struct ContentView: View {
                 .font(.headline)
             Text("Grant access to view and analyze your photo metadata.")
                 .foregroundStyle(.secondary)
-            Button("Grant Access") {
+            Button("Continue") {
                 Task {
                     await viewModel.requestAuthorization()
                 }
