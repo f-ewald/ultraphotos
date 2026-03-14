@@ -12,6 +12,7 @@ struct PhotoThumbnailView: View {
     let asset: PhotoAsset
     @Bindable var viewModel: PhotoGridViewModel
     let size: CGFloat
+    @AppStorage(PreferenceKeys.showMetadata) private var showMetadata: Bool = true
     @State private var image: NSImage?
 
     private var isSelected: Bool {
@@ -35,43 +36,45 @@ struct PhotoThumbnailView: View {
                     }
             }
 
-            VStack {
-                HStack {
-                    Spacer()
-                    if let date = asset.creationDate {
-                        Text(date.formatted(.dateTime.month(.twoDigits).day(.twoDigits).year(.defaultDigits)))
-                            .font(.caption2)
-                            .fontWeight(.semibold)
-                            .foregroundStyle(.white)
-                            .padding(.horizontal, 4)
-                            .padding(.vertical, 2)
-                            .background(.black.opacity(0.7), in: RoundedRectangle(cornerRadius: 4))
-                    }
-                }
-                Spacer()
-                HStack {
-                    if asset.isVideo {
-                        Text(formattedDuration(asset.duration))
-                            .font(.caption2)
-                            .fontWeight(.semibold)
-                            .foregroundStyle(.white)
-                            .padding(.horizontal, 4)
-                            .padding(.vertical, 2)
-                            .background(.black.opacity(0.7), in: RoundedRectangle(cornerRadius: 4))
+            if showMetadata {
+                VStack {
+                    HStack {
+                        Spacer()
+                        if let date = asset.creationDate {
+                            Text(date.formatted(.dateTime.month(.twoDigits).day(.twoDigits).year(.defaultDigits)))
+                                .font(.caption2)
+                                .fontWeight(.semibold)
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, 4)
+                                .padding(.vertical, 2)
+                                .background(.black.opacity(0.7), in: RoundedRectangle(cornerRadius: 4))
+                        }
                     }
                     Spacer()
-                    if let cached = viewModel.metadataCache[asset.id] {
-                        Text(formattedFileSize(cached.fileSize))
-                            .font(.caption2)
-                            .fontWeight(.semibold)
-                            .foregroundStyle(.white)
-                            .padding(.horizontal, 4)
-                            .padding(.vertical, 2)
-                            .background(.black.opacity(0.7), in: RoundedRectangle(cornerRadius: 4))
+                    HStack {
+                        if asset.isVideo {
+                            Text(formattedDuration(asset.duration))
+                                .font(.caption2)
+                                .fontWeight(.semibold)
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, 4)
+                                .padding(.vertical, 2)
+                                .background(.black.opacity(0.7), in: RoundedRectangle(cornerRadius: 4))
+                        }
+                        Spacer()
+                        if let cached = viewModel.metadataCache[asset.id] {
+                            Text(formattedFileSize(cached.fileSize))
+                                .font(.caption2)
+                                .fontWeight(.semibold)
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, 4)
+                                .padding(.vertical, 2)
+                                .background(.black.opacity(0.7), in: RoundedRectangle(cornerRadius: 4))
+                        }
                     }
                 }
+                .padding(4)
             }
-            .padding(4)
         }
         .overlay {
             if isSelected {

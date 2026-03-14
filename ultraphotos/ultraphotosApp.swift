@@ -60,5 +60,9 @@ struct ultraphotosApp: App {
         }
         .commands { ExportCommands() }
         .modelContainer(modelContainer)
+
+        Settings {
+            SettingsView()
+        }
     }
 }

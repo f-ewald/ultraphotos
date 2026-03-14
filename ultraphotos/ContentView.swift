@@ -42,7 +42,7 @@ struct ContentView: View {
     #else
     @State private var viewModel = PhotoGridViewModel()
     #endif
-    @State private var thumbnailSize: CGFloat = 150
+    @AppStorage(PreferenceKeys.thumbnailSize) private var thumbnailSize: Double = 150
 
     private var columns: [GridItem] {
         [GridItem(.adaptive(minimum: thumbnailSize, maximum: thumbnailSize + 50))]
@@ -245,7 +245,7 @@ struct ContentView: View {
                 ProgressView("Loading photos...")
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .padding(.top, 100)
-            } else if viewModel.filteredAssets.isEmpty {
+            } else if viewModel.hasCompletedInitialLoad && viewModel.filteredAssets.isEmpty {
                 Text("No photos or videos found.")
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)

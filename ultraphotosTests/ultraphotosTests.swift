@@ -1132,4 +1132,64 @@ struct PhotoGridViewModelTests {
         #expect(viewModel.assets.map(\.id).contains("C"))
         #expect(viewModel.selectedIdentifiers.isEmpty)
     }
+
+    // MARK: - Preference persistence tests
+
+    @Test func settingMediaFilterWritesToUserDefaults() {
+        let defaults = UserDefaults(suiteName: "test.mediaFilter.\(UUID().uuidString)")!
+        let mock = MockPhotoLibraryService()
+        let viewModel = PhotoGridViewModel(service: mock, defaults: defaults)
+
+        viewModel.mediaFilter = .videosOnly
+
+        #expect(defaults.string(forKey: PreferenceKeys.mediaFilter) == "videosOnly")
+    }
+
+    @Test func settingSortOptionWritesToUserDefaults() {
+        let defaults = UserDefaults(suiteName: "test.sortOption.\(UUID().uuidString)")!
+        let mock = MockPhotoLibraryService()
+        let viewModel = PhotoGridViewModel(service: mock, defaults: defaults)
+
+        viewModel.sortOption = .fileSize
+
+        #expect(defaults.string(forKey: PreferenceKeys.sortOption) == "fileSize")
+    }
+
+    @Test func settingSortOrderWritesToUserDefaults() {
+        let defaults = UserDefaults(suiteName: "test.sortOrder.\(UUID().uuidString)")!
+        let mock = MockPhotoLibraryService()
+        let viewModel = PhotoGridViewModel(service: mock, defaults: defaults)
+
+        viewModel.sortOrder = .ascending
+
+        #expect(defaults.string(forKey: PreferenceKeys.sortOrder) == "ascending")
+    }
+
+    @Test func viewModelRestoresPersistedPreferences() {
+        let defaults = UserDefaults(suiteName: "test.restore.\(UUID().uuidString)")!
+        defaults.set("photosOnly", forKey: PreferenceKeys.mediaFilter)
+        defaults.set("duration", forKey: PreferenceKeys.sortOption)
+        defaults.set("ascending", forKey: PreferenceKeys.sortOrder)
+
+        let mock = MockPhotoLibraryService()
+        let viewModel = PhotoGridViewModel(service: mock, defaults: defaults)
+
+        #expect(viewModel.mediaFilter == .photosOnly)
+        #expect(viewModel.sortOption == .duration)
+        #expect(viewModel.sortOrder == .ascending)
+    }
+
+    @Test func invalidStoredValuesDefaultToDefaults() {
+        let defaults = UserDefaults(suiteName: "test.invalid.\(UUID().uuidString)")!
+        defaults.set("bogus", forKey: PreferenceKeys.mediaFilter)
+        defaults.set("nope", forKey: PreferenceKeys.sortOption)
+        defaults.set("wrong", forKey: PreferenceKeys.sortOrder)
+
+        let mock = MockPhotoLibraryService()
+        let viewModel = PhotoGridViewModel(service: mock, defaults: defaults)
+
+        #expect(viewModel.mediaFilter == .all)
+        #expect(viewModel.sortOption == .recordTime)
+        #expect(viewModel.sortOrder == .descending)
+    }
 }

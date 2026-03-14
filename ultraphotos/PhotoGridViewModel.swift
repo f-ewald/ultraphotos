@@ -106,15 +106,25 @@ final class PhotoGridViewModel {
     private(set) var assets: [PhotoAsset] = []
     private let thumbnailCache = NSCache<NSString, NSImage>()
     private(set) var isLoading = false
+    private(set) var hasCompletedInitialLoad = false
     private(set) var errorMessage: String?
     var mediaFilter: MediaTypeFilter = .all {
-        didSet { updateFilteredAssets() }
+        didSet {
+            updateFilteredAssets()
+            defaults.set(mediaFilter.rawValue, forKey: PreferenceKeys.mediaFilter)
+        }
     }
     var sortOption: SortOption = .recordTime {
-        didSet { updateFilteredAssets() }
+        didSet {
+            updateFilteredAssets()
+            defaults.set(sortOption.rawValue, forKey: PreferenceKeys.sortOption)
+        }
     }
     var sortOrder: SortOrder = .descending {
-        didSet { updateFilteredAssets() }
+        didSet {
+            updateFilteredAssets()
+            defaults.set(sortOrder.rawValue, forKey: PreferenceKeys.sortOrder)
+        }
     }
     private(set) var isSyncingMetadata = false
     private(set) var metadataSyncProgress: Int = 0
@@ -137,16 +147,33 @@ final class PhotoGridViewModel {
 
     private var modelContainer: ModelContainer?
     private let service: PhotoLibraryServing
+    private let defaults: UserDefaults
     private var filterGeneration: UInt64 = 0
 
     #if !SCREENSHOTS
     private var phAssetsByIdentifier: [String: PHAsset] = [:]
     #endif
 
-    init(service: PhotoLibraryServing = PhotoLibraryService()) {
+    init(service: PhotoLibraryServing = PhotoLibraryService(), defaults: UserDefaults = .standard) {
         self.service = service
+        self.defaults = defaults
         thumbnailCache.countLimit = 300
         authorizationState = Self.mapStatus(service.authorizationStatus(for: .readWrite))
+
+        #if !SCREENSHOTS
+        if let raw = defaults.string(forKey: PreferenceKeys.mediaFilter),
+           let saved = MediaTypeFilter(rawValue: raw) {
+            mediaFilter = saved
+        }
+        if let raw = defaults.string(forKey: PreferenceKeys.sortOption),
+           let saved = SortOption(rawValue: raw) {
+            sortOption = saved
+        }
+        if let raw = defaults.string(forKey: PreferenceKeys.sortOrder),
+           let saved = SortOrder(rawValue: raw) {
+            sortOrder = saved
+        }
+        #endif
     }
 
     func configure(modelContainer: ModelContainer) {
@@ -197,6 +224,7 @@ final class PhotoGridViewModel {
         assets = fetchedPHAssets.map { PhotoAsset(from: $0) }
         updateFilteredAssets()
         isLoading = false
+        hasCompletedInitialLoad = true
 
         await loadMetadataCache()
         await syncMetadata()

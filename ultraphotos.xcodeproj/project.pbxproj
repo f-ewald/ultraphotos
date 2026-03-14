@@ -6,6 +6,11 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		850139E62F65B8FE0067FEC9 /* Changelog.md in Resources */ = {isa = PBXBuildFile; fileRef = 850139E52F65B8F70067FEC9 /* Changelog.md */; };
+		85013B112F65BC270067FEC9 /* Planned Features.md in Resources */ = {isa = PBXBuildFile; fileRef = 85013B102F65BC1E0067FEC9 /* Planned Features.md */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		6B0F0E372F462B0800CC682F /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -27,6 +32,9 @@
 		6B0F0E272F462B0600CC682F /* ultraphotos.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ultraphotos.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		6B0F0E362F462B0800CC682F /* ultraphotosTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ultraphotosTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		6B0F0E402F462B0800CC682F /* ultraphotosUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ultraphotosUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		850139E52F65B8F70067FEC9 /* Changelog.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = Changelog.md; sourceTree = "<group>"; };
+		850139F02F65C0000067FEC9 /* Version.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Version.xcconfig; sourceTree = "<group>"; };
+		85013B102F65BC1E0067FEC9 /* Planned Features.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = "Planned Features.md"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -75,6 +83,9 @@
 		6B0F0E1E2F462B0600CC682F = {
 			isa = PBXGroup;
 			children = (
+				85013B102F65BC1E0067FEC9 /* Planned Features.md */,
+				850139F02F65C0000067FEC9 /* Version.xcconfig */,
+				850139E52F65B8F70067FEC9 /* Changelog.md */,
 				6B0F0E292F462B0600CC682F /* ultraphotos */,
 				6B0F0E392F462B0800CC682F /* ultraphotosTests */,
 				6B0F0E432F462B0800CC682F /* ultraphotosUITests */,
@@ -99,6 +110,7 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 6B0F0E4A2F462B0800CC682F /* Build configuration list for PBXNativeTarget "ultraphotos" */;
 			buildPhases = (
+				850139F12F65C0010067FEC9 /* Increment Build Number */,
 				6B0F0E232F462B0600CC682F /* Sources */,
 				6B0F0E242F462B0600CC682F /* Frameworks */,
 				6B0F0E252F462B0600CC682F /* Resources */,
@@ -212,6 +224,8 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				850139E62F65B8FE0067FEC9 /* Changelog.md in Resources */,
+				85013B112F65BC270067FEC9 /* Planned Features.md in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -230,6 +244,28 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		850139F12F65C0010067FEC9 /* Increment Build Number */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Increment Build Number";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/bash;
+			shellScript = "\"${SRCROOT}/scripts/increment_build_number.sh\"\n";
+		};
+/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		6B0F0E232F462B0600CC682F /* Sources */ = {
@@ -307,7 +343,7 @@
 				DEVELOPMENT_TEAM = H93944JUWW;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
-				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GCC_C_LANGUAGE_STANDARD = gnu17;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_NO_COMMON_BLOCKS = YES;
@@ -371,7 +407,7 @@
 				DEVELOPMENT_TEAM = H93944JUWW;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
-				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GCC_C_LANGUAGE_STANDARD = gnu17;
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
@@ -391,13 +427,13 @@
 		};
 		6B0F0E4B2F462B0800CC682F /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 850139F02F65C0000067FEC9 /* Version.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = ultraphotos/ultraphotos.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_TEAM = H93944JUWW;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -411,7 +447,6 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = net.fewald.ultraphotos;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
@@ -426,6 +461,7 @@
 		};
 		6B0F0E4C2F462B0800CC682F /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 850139F02F65C0000067FEC9 /* Version.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
@@ -433,7 +469,6 @@
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_TEAM = H93944JUWW;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -447,7 +482,6 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = net.fewald.ultraphotos;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;

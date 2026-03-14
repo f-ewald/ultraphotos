@@ -10,34 +10,54 @@ UltraPhotos is a native macOS application for analyzing metadata of photos store
 
 ```bash
 # Build (Debug)
-xcodebuild -project ultraphotos.xcodeproj -scheme ultraphotos -configuration Debug build
+make build
 
 # Build (Release)
-xcodebuild -project ultraphotos.xcodeproj -scheme ultraphotos -configuration Release build
+make build-release
+
+# Build with demo/screenshot data (uses SCREENSHOTS compilation condition)
+make build-screenshots
 
 # Run all tests (unit + UI)
-xcodebuild -project ultraphotos.xcodeproj -scheme ultraphotos test
+make test
 
 # Run unit tests only
-xcodebuild -project ultraphotos.xcodeproj -scheme ultraphotos -only-testing:ultraphotosTests test
+make test-unit
 
 # Run UI tests only
-xcodebuild -project ultraphotos.xcodeproj -scheme ultraphotos -only-testing:ultraphotosUITests test
+make test-ui
 
-# Run a single test
+# Clean
+make clean
+
+# Run a single test (use xcodebuild directly)
 xcodebuild -project ultraphotos.xcodeproj -scheme ultraphotos -only-testing:ultraphotosTests/ultraphotosTests/example test
 ```
 
 ## Architecture
 
+The app follows an **MVVM pattern** with a protocol-based service layer.
+
 - **Entry point:** `ultraphotosApp.swift` — sets up the `ModelContainer` for SwiftData and hosts the main `WindowGroup`.
-- **Data layer:** SwiftData with `@Model` classes (currently `Item`). The model container is configured with on-disk persistence and injected via `.modelContainer()`.
-- **UI layer:** SwiftUI views using `@Query` for reactive data fetching and `@Environment(\.modelContext)` for mutations.
-- **Testing:** Unit tests use Swift Testing (`import Testing`, `@Test`, `#expect`). UI tests use XCTest.
+- **Model (SwiftData):** `MediaMetadata` defined in `MediaMetadataSchemaV1.swift` — stores per-asset metadata (file size, creation date, duration, location). Uses `VersionedSchema` with a migration plan.
+- **ViewModel:** `PhotoGridViewModel` (`@Observable`) — core state manager handling photo library authorization, asset fetching/filtering/sorting, metadata sync, thumbnail caching, selection, export, and deletion.
+- **Service layer:** `PhotoLibraryService` implements `PhotoLibraryServing` protocol — wraps `PHPhotoLibrary` and `PHCachingImageManager`. The protocol enables dependency injection for testing and demo mode.
+- **Settings:** `SettingsView` — accessible via the standard macOS Settings menu item (Cmd+,). Uses the built-in `Settings` scene.
+- **UI layer:** SwiftUI views consuming `PhotoGridViewModel`.
 
 ## Key Conventions
 
 - Every new feature must include corresponding test cases.
 - Swift concurrency: `SWIFT_APPROACHABLE_CONCURRENCY` is enabled with `MainActor` as the default actor isolation.
-- App Sandbox and Hardened Runtime are enabled. User-selected files are read-only.
+- App Sandbox and Hardened Runtime are enabled. User-selected files are read-write (`com.apple.security.files.user-selected.read-write`).
 - No external dependencies — pure Apple platform APIs only.
+
+## Testing Patterns
+
+- **Mock service:** Create a mock conforming to `PhotoLibraryServing` and inject it into `PhotoGridViewModel(service:)`.
+- **In-memory SwiftData:** Use `ModelConfiguration(isStoredInMemoryOnly: true)` to create a test `ModelContainer` without touching disk.
+- **Unit tests** use Swift Testing (`import Testing`, `@Test`, `#expect`). UI tests use XCTest.
+
+## Compilation Conditions
+
+- `SCREENSHOTS` — enables demo mode with synthetic data (`DemoPhotoLibraryService`, `DemoDataProvider`). Used for App Store screenshots. Build with `make build-screenshots`.
