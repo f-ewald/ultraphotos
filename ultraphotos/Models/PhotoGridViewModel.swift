@@ -93,6 +93,11 @@ struct ExportResult: Equatable {
     let skippedCount: Int
 }
 
+struct ReindexResult: Equatable {
+    let removed: Int
+    let added: Int
+}
+
 enum FullscreenNavigationDirection {
     case previous
     case next
@@ -140,6 +145,8 @@ final class PhotoGridViewModel {
     private(set) var fullscreenImage: NSImage?
     private(set) var isLoadingFullscreenImage = false
     private(set) var isDeleting = false
+    private(set) var isReindexing = false
+    private(set) var reindexResult: ReindexResult?
 
     var isFullscreenActive: Bool {
         fullscreenAssetIdentifier != nil
@@ -197,6 +204,7 @@ final class PhotoGridViewModel {
     func fetchAssets() async {
         isLoading = true
         errorMessage = nil
+        await Task.yield()  // Let the UI render pending state changes
 
         let options = PHFetchOptions()
         options.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
@@ -227,7 +235,11 @@ final class PhotoGridViewModel {
         hasCompletedInitialLoad = true
 
         await loadMetadataCache()
-        await syncMetadata()
+        let syncCounts = await syncMetadata()
+
+        if isReindexing, let syncCounts {
+            reindexResult = ReindexResult(removed: syncCounts.removed, added: syncCounts.added)
+        }
     }
 
     func loadThumbnail(for identifier: String) async -> NSImage? {
@@ -281,12 +293,19 @@ final class PhotoGridViewModel {
         }
     }
 
-    func syncMetadata() async {
+    struct SyncCounts: Sendable {
+        let removed: Int
+        let added: Int
+        let cache: [String: MediaMetadata]
+    }
+
+    @discardableResult
+    func syncMetadata() async -> SyncCounts? {
         #if SCREENSHOTS
         // No metadata sync needed in demo mode
-        return
+        return nil
         #else
-        guard let container = modelContainer, !isSyncingMetadata else { return }
+        guard let container = modelContainer, !isSyncingMetadata else { return nil }
 
         isSyncingMetadata = true
         metadataSyncProgress = 0
@@ -295,7 +314,7 @@ final class PhotoGridViewModel {
         let assetsSnapshot = assets
         let phAssets = phAssetsByIdentifier
         let viewModel = self
-        let result: [String: MediaMetadata]? = await Task.detached {
+        let syncResult: SyncCounts? = await Task.detached {
             let context = ModelContext(container)
 
             let descriptor = FetchDescriptor<MediaMetadata>()
@@ -303,7 +322,7 @@ final class PhotoGridViewModel {
             do {
                 existingRecords = try context.fetch(descriptor)
             } catch {
-                return nil as [String: MediaMetadata]?
+                return nil as SyncCounts?
             }
 
             // Deletion pass: remove records for assets no longer in the library
@@ -315,6 +334,7 @@ final class PhotoGridViewModel {
             if !staleRecords.isEmpty {
                 try? context.save()
             }
+            let removedCount = staleRecords.count
 
             let remainingIDs = Set(existingRecords.map(\.localIdentifier)).subtracting(staleRecords.map(\.localIdentifier))
             let toSync = assetsSnapshot.filter { !remainingIDs.contains($0.id) }
@@ -362,17 +382,18 @@ final class PhotoGridViewModel {
                 for record in allRecords {
                     cache[record.localIdentifier] = record
                 }
-                return cache
+                return SyncCounts(removed: removedCount, added: insertCount, cache: cache)
             } catch {
-                return nil as [String: MediaMetadata]?
+                return nil as SyncCounts?
             }
         }.value
 
-        if let result {
-            metadataCache = result
+        if let syncResult {
+            metadataCache = syncResult.cache
             updateFilteredAssets()
         }
         isSyncingMetadata = false
+        return syncResult
         #endif
     }
 
@@ -380,6 +401,20 @@ final class PhotoGridViewModel {
         guard !isSyncingMetadata else { return }
         await fetchAssets()
         thumbnailCache.removeAllObjects()
+    }
+
+    func reindexLibrary() async {
+        guard !isReindexing, !isSyncingMetadata else { return }
+        isReindexing = true
+        reindexResult = nil
+
+        await fetchAssets()
+
+        isReindexing = false
+    }
+
+    func clearReindexResult() {
+        reindexResult = nil
     }
 
     static func rangeSelection(

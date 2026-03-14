@@ -37,11 +37,7 @@ extension FocusedValues {
 
 struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
-    #if SCREENSHOTS
-    @State private var viewModel = PhotoGridViewModel.demoViewModel()
-    #else
-    @State private var viewModel = PhotoGridViewModel()
-    #endif
+    @Environment(PhotoGridViewModel.self) private var viewModel
     @AppStorage(PreferenceKeys.thumbnailSize) private var thumbnailSize: Double = 150
 
     private var columns: [GridItem] {
@@ -346,4 +342,5 @@ struct ContentView: View {
 
 #Preview {
     ContentView()
+        .environment(PhotoGridViewModel())
 }

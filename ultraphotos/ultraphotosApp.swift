@@ -36,6 +36,11 @@ struct ExportCommands: Commands {
 @main
 struct ultraphotosApp: App {
     let modelContainer: ModelContainer
+    #if SCREENSHOTS
+    @State private var viewModel = PhotoGridViewModel.demoViewModel()
+    #else
+    @State private var viewModel = PhotoGridViewModel()
+    #endif
 
     init() {
         let schema = Schema(versionedSchema: MediaMetadataSchemaV1.self)
@@ -60,9 +65,11 @@ struct ultraphotosApp: App {
         }
         .commands { ExportCommands() }
         .modelContainer(modelContainer)
+        .environment(viewModel)
 
         Settings {
             SettingsView()
+                .environment(viewModel)
         }
     }
 }

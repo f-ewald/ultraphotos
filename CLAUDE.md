@@ -38,12 +38,32 @@ xcodebuild -project ultraphotos.xcodeproj -scheme ultraphotos -only-testing:ultr
 
 The app follows an **MVVM pattern** with a protocol-based service layer.
 
+```
+ultraphotos/
+├── ultraphotosApp.swift          # Entry point
+├── DemoDataProvider.swift        # Demo data generation
+├── Models/
+│   ├── PhotoAsset.swift          # Photo asset model
+│   ├── PhotoGridViewModel.swift  # Core ViewModel (@Observable)
+│   └── V1/
+│       └── MediaMetadataSchemaV1.swift  # SwiftData schema
+├── Views/
+│   ├── ContentView.swift         # Main grid view
+│   ├── FullscreenImageView.swift # Fullscreen viewer
+│   ├── PhotoThumbnailView.swift  # Thumbnail component
+│   └── SettingsView.swift        # Preferences (Cmd+,)
+└── Services/
+    ├── PhotoLibraryService.swift      # PhotoLibraryServing impl
+    ├── DemoPhotoLibraryService.swift  # Demo/test mock service
+    └── PreferenceKeys.swift           # SwiftUI preference keys
+```
+
 - **Entry point:** `ultraphotosApp.swift` — sets up the `ModelContainer` for SwiftData and hosts the main `WindowGroup`.
-- **Model (SwiftData):** `MediaMetadata` defined in `MediaMetadataSchemaV1.swift` — stores per-asset metadata (file size, creation date, duration, location). Uses `VersionedSchema` with a migration plan.
-- **ViewModel:** `PhotoGridViewModel` (`@Observable`) — core state manager handling photo library authorization, asset fetching/filtering/sorting, metadata sync, thumbnail caching, selection, export, and deletion.
-- **Service layer:** `PhotoLibraryService` implements `PhotoLibraryServing` protocol — wraps `PHPhotoLibrary` and `PHCachingImageManager`. The protocol enables dependency injection for testing and demo mode.
-- **Settings:** `SettingsView` — accessible via the standard macOS Settings menu item (Cmd+,). Uses the built-in `Settings` scene.
-- **UI layer:** SwiftUI views consuming `PhotoGridViewModel`.
+- **Model (SwiftData):** `MediaMetadata` defined in `Models/V1/MediaMetadataSchemaV1.swift` — stores per-asset metadata (file size, creation date, duration, location). Uses `VersionedSchema` with a migration plan.
+- **ViewModel:** `Models/PhotoGridViewModel.swift` (`@Observable`) — core state manager handling photo library authorization, asset fetching/filtering/sorting, metadata sync, thumbnail caching, selection, export, and deletion.
+- **Service layer:** `Services/PhotoLibraryService.swift` implements `PhotoLibraryServing` protocol — wraps `PHPhotoLibrary` and `PHCachingImageManager`. The protocol enables dependency injection for testing and demo mode.
+- **Settings:** `Views/SettingsView.swift` — accessible via the standard macOS Settings menu item (Cmd+,). Uses the built-in `Settings` scene.
+- **UI layer:** SwiftUI views in `Views/` consuming `PhotoGridViewModel`.
 
 ## Key Conventions
 

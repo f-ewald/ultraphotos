@@ -1,3 +1,9 @@
+# 1.0.2
+
+* Added option to reindex library
+* Added explanation to metadata
+* Added back button to detail view
+
 # 1.0.1
 
 * Persist sort order throughout app restart

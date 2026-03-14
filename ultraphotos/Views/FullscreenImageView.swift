@@ -57,6 +57,31 @@ struct FullscreenImageView: View {
             }
             .opacity(isHovering ? 1 : 0)
             .animation(.easeInOut(duration: 0.2), value: isHovering)
+
+            VStack {
+                HStack {
+                    Button {
+                        viewModel.closeFullscreen()
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: "chevron.backward")
+                            Text("Back")
+                        }
+                        .font(.body)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                        .background(.regularMaterial, in: Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    Spacer()
+                }
+                Spacer()
+            }
+            .padding(16)
+            .opacity(isHovering ? 1 : 0)
+            .animation(.easeInOut(duration: 0.2), value: isHovering)
         }
         .onHover { hovering in
             isHovering = hovering

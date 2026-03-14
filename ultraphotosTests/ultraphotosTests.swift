@@ -72,9 +72,13 @@ final class MockPhotoLibraryService: PhotoLibraryServing {
 
 struct PhotoGridViewModelTests {
 
+    private func makeTestDefaults() -> UserDefaults {
+        UserDefaults(suiteName: "test.\(UUID().uuidString)")!
+    }
+
     @Test func initialStateIsNotDetermined() {
         let mock = MockPhotoLibraryService()
-        let viewModel = PhotoGridViewModel(service: mock)
+        let viewModel = PhotoGridViewModel(service: mock, defaults: makeTestDefaults())
 
         #expect(viewModel.authorizationState == .notDetermined)
         #expect(viewModel.assets.isEmpty)
@@ -85,7 +89,7 @@ struct PhotoGridViewModelTests {
     @Test func checkAuthorizationStatusMapsNotDetermined() {
         let mock = MockPhotoLibraryService()
         mock.stubbedAuthorizationStatus = .notDetermined
-        let viewModel = PhotoGridViewModel(service: mock)
+        let viewModel = PhotoGridViewModel(service: mock, defaults: makeTestDefaults())
 
         viewModel.checkAuthorizationStatus()
 
@@ -97,7 +101,7 @@ struct PhotoGridViewModelTests {
     @Test func checkAuthorizationStatusMapsAuthorized() {
         let mock = MockPhotoLibraryService()
         mock.stubbedAuthorizationStatus = .authorized
-        let viewModel = PhotoGridViewModel(service: mock)
+        let viewModel = PhotoGridViewModel(service: mock, defaults: makeTestDefaults())
 
         viewModel.checkAuthorizationStatus()
 
@@ -107,7 +111,7 @@ struct PhotoGridViewModelTests {
     @Test func checkAuthorizationStatusMapsLimited() {
         let mock = MockPhotoLibraryService()
         mock.stubbedAuthorizationStatus = .limited
-        let viewModel = PhotoGridViewModel(service: mock)
+        let viewModel = PhotoGridViewModel(service: mock, defaults: makeTestDefaults())
 
         viewModel.checkAuthorizationStatus()
 
@@ -117,7 +121,7 @@ struct PhotoGridViewModelTests {
     @Test func checkAuthorizationStatusMapsDenied() {
         let mock = MockPhotoLibraryService()
         mock.stubbedAuthorizationStatus = .denied
-        let viewModel = PhotoGridViewModel(service: mock)
+        let viewModel = PhotoGridViewModel(service: mock, defaults: makeTestDefaults())
 
         viewModel.checkAuthorizationStatus()
 
@@ -127,7 +131,7 @@ struct PhotoGridViewModelTests {
     @Test func checkAuthorizationStatusMapsRestricted() {
         let mock = MockPhotoLibraryService()
         mock.stubbedAuthorizationStatus = .restricted
-        let viewModel = PhotoGridViewModel(service: mock)
+        let viewModel = PhotoGridViewModel(service: mock, defaults: makeTestDefaults())
 
         viewModel.checkAuthorizationStatus()
 
@@ -137,7 +141,7 @@ struct PhotoGridViewModelTests {
     @Test func requestAuthorizationCallsServiceAndUpdatesState() async {
         let mock = MockPhotoLibraryService()
         mock.stubbedRequestAuthorizationStatus = .authorized
-        let viewModel = PhotoGridViewModel(service: mock)
+        let viewModel = PhotoGridViewModel(service: mock, defaults: makeTestDefaults())
 
         await viewModel.requestAuthorization()
 
@@ -148,7 +152,7 @@ struct PhotoGridViewModelTests {
     @Test func requestAuthorizationDeniedDoesNotFetchAssets() async {
         let mock = MockPhotoLibraryService()
         mock.stubbedRequestAuthorizationStatus = .denied
-        let viewModel = PhotoGridViewModel(service: mock)
+        let viewModel = PhotoGridViewModel(service: mock, defaults: makeTestDefaults())
 
         await viewModel.requestAuthorization()
 
@@ -158,7 +162,7 @@ struct PhotoGridViewModelTests {
 
     @Test func fetchAssetsSetsIsLoadingToFalseWhenDone() async {
         let mock = MockPhotoLibraryService()
-        let viewModel = PhotoGridViewModel(service: mock)
+        let viewModel = PhotoGridViewModel(service: mock, defaults: makeTestDefaults())
 
         await viewModel.fetchAssets()
 
@@ -171,14 +175,14 @@ struct PhotoGridViewModelTests {
 
     @Test func defaultMediaFilterIsAll() {
         let mock = MockPhotoLibraryService()
-        let viewModel = PhotoGridViewModel(service: mock)
+        let viewModel = PhotoGridViewModel(service: mock, defaults: makeTestDefaults())
 
         #expect(viewModel.mediaFilter == .all)
     }
 
     @Test func filteredAssetsReturnsAllWhenFilterIsAll() async {
         let mock = MockPhotoLibraryService()
-        let viewModel = PhotoGridViewModel(service: mock)
+        let viewModel = PhotoGridViewModel(service: mock, defaults: makeTestDefaults())
 
         await viewModel.fetchAssets()
 
@@ -188,7 +192,7 @@ struct PhotoGridViewModelTests {
 
     @Test func mediaFilterCanBeSetToPhotosOnly() {
         let mock = MockPhotoLibraryService()
-        let viewModel = PhotoGridViewModel(service: mock)
+        let viewModel = PhotoGridViewModel(service: mock, defaults: makeTestDefaults())
 
         viewModel.mediaFilter = .photosOnly
         #expect(viewModel.mediaFilter == .photosOnly)
@@ -196,7 +200,7 @@ struct PhotoGridViewModelTests {
 
     @Test func mediaFilterCanBeSetToVideosOnly() {
         let mock = MockPhotoLibraryService()
-        let viewModel = PhotoGridViewModel(service: mock)
+        let viewModel = PhotoGridViewModel(service: mock, defaults: makeTestDefaults())
 
         viewModel.mediaFilter = .videosOnly
         #expect(viewModel.mediaFilter == .videosOnly)
@@ -267,21 +271,21 @@ struct PhotoGridViewModelTests {
 
     @Test func defaultSortOptionIsRecordTime() {
         let mock = MockPhotoLibraryService()
-        let viewModel = PhotoGridViewModel(service: mock)
+        let viewModel = PhotoGridViewModel(service: mock, defaults: makeTestDefaults())
 
         #expect(viewModel.sortOption == .recordTime)
     }
 
     @Test func defaultSortOrderIsDescending() {
         let mock = MockPhotoLibraryService()
-        let viewModel = PhotoGridViewModel(service: mock)
+        let viewModel = PhotoGridViewModel(service: mock, defaults: makeTestDefaults())
 
         #expect(viewModel.sortOrder == .descending)
     }
 
     @Test func sortOptionCanBeSetToDuration() {
         let mock = MockPhotoLibraryService()
-        let viewModel = PhotoGridViewModel(service: mock)
+        let viewModel = PhotoGridViewModel(service: mock, defaults: makeTestDefaults())
 
         viewModel.sortOption = .duration
         #expect(viewModel.sortOption == .duration)
@@ -289,7 +293,7 @@ struct PhotoGridViewModelTests {
 
     @Test func sortOptionCanBeSetToFileSize() {
         let mock = MockPhotoLibraryService()
-        let viewModel = PhotoGridViewModel(service: mock)
+        let viewModel = PhotoGridViewModel(service: mock, defaults: makeTestDefaults())
 
         viewModel.sortOption = .fileSize
         #expect(viewModel.sortOption == .fileSize)
@@ -297,7 +301,7 @@ struct PhotoGridViewModelTests {
 
     @Test func sortOrderCanBeSetToAscending() {
         let mock = MockPhotoLibraryService()
-        let viewModel = PhotoGridViewModel(service: mock)
+        let viewModel = PhotoGridViewModel(service: mock, defaults: makeTestDefaults())
 
         viewModel.sortOrder = .ascending
         #expect(viewModel.sortOrder == .ascending)
@@ -307,14 +311,14 @@ struct PhotoGridViewModelTests {
 
     @Test func isSyncingMetadataIsFalseInitially() {
         let mock = MockPhotoLibraryService()
-        let viewModel = PhotoGridViewModel(service: mock)
+        let viewModel = PhotoGridViewModel(service: mock, defaults: makeTestDefaults())
 
         #expect(viewModel.isSyncingMetadata == false)
     }
 
     @Test func metadataCacheIsEmptyInitially() {
         let mock = MockPhotoLibraryService()
-        let viewModel = PhotoGridViewModel(service: mock)
+        let viewModel = PhotoGridViewModel(service: mock, defaults: makeTestDefaults())
 
         #expect(viewModel.metadataCache.isEmpty)
     }
@@ -379,7 +383,7 @@ struct PhotoGridViewModelTests {
 
     @Test func syncMetadataDoesNothingWhenNoContainer() async {
         let mock = MockPhotoLibraryService()
-        let viewModel = PhotoGridViewModel(service: mock)
+        let viewModel = PhotoGridViewModel(service: mock, defaults: makeTestDefaults())
 
         await viewModel.syncMetadata()
 
@@ -392,7 +396,7 @@ struct PhotoGridViewModelTests {
         // Mock returns empty fetch result, so no assets exist in the library
         mock.stubbedFetchResult = PHFetchResult<PHAsset>()
 
-        let viewModel = PhotoGridViewModel(service: mock)
+        let viewModel = PhotoGridViewModel(service: mock, defaults: makeTestDefaults())
 
         let schema = Schema(versionedSchema: MediaMetadataSchemaV1.self)
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
@@ -424,7 +428,7 @@ struct PhotoGridViewModelTests {
 
     @Test func refreshMetadataCompletesCleanly() async {
         let mock = MockPhotoLibraryService()
-        let viewModel = PhotoGridViewModel(service: mock)
+        let viewModel = PhotoGridViewModel(service: mock, defaults: makeTestDefaults())
         // No container configured — refreshMetadata should still complete without error
 
         await viewModel.refreshMetadata()
@@ -441,7 +445,7 @@ struct PhotoGridViewModelTests {
 
     @Test func initialSelectionIsEmpty() {
         let mock = MockPhotoLibraryService()
-        let viewModel = PhotoGridViewModel(service: mock)
+        let viewModel = PhotoGridViewModel(service: mock, defaults: makeTestDefaults())
 
         #expect(viewModel.selectedIdentifiers.isEmpty)
         #expect(viewModel.lastClickedIdentifier == nil)
@@ -449,7 +453,7 @@ struct PhotoGridViewModelTests {
 
     @Test func plainClickSelectsSingleItem() {
         let mock = MockPhotoLibraryService()
-        let viewModel = PhotoGridViewModel(service: mock)
+        let viewModel = PhotoGridViewModel(service: mock, defaults: makeTestDefaults())
 
         viewModel.handleThumbnailClick(identifier: "item-1", modifiers: [])
 
@@ -459,7 +463,7 @@ struct PhotoGridViewModelTests {
 
     @Test func plainClickReplacesExistingSelection() {
         let mock = MockPhotoLibraryService()
-        let viewModel = PhotoGridViewModel(service: mock)
+        let viewModel = PhotoGridViewModel(service: mock, defaults: makeTestDefaults())
 
         viewModel.handleThumbnailClick(identifier: "item-1", modifiers: [])
         viewModel.handleThumbnailClick(identifier: "item-2", modifiers: [])
@@ -470,7 +474,7 @@ struct PhotoGridViewModelTests {
 
     @Test func cmdClickTogglesItemIn() {
         let mock = MockPhotoLibraryService()
-        let viewModel = PhotoGridViewModel(service: mock)
+        let viewModel = PhotoGridViewModel(service: mock, defaults: makeTestDefaults())
 
         viewModel.handleThumbnailClick(identifier: "item-1", modifiers: [])
         viewModel.handleThumbnailClick(identifier: "item-2", modifiers: .command)
@@ -481,7 +485,7 @@ struct PhotoGridViewModelTests {
 
     @Test func cmdClickTogglesItemOut() {
         let mock = MockPhotoLibraryService()
-        let viewModel = PhotoGridViewModel(service: mock)
+        let viewModel = PhotoGridViewModel(service: mock, defaults: makeTestDefaults())
 
         viewModel.handleThumbnailClick(identifier: "item-1", modifiers: [])
         viewModel.handleThumbnailClick(identifier: "item-2", modifiers: .command)
@@ -493,7 +497,7 @@ struct PhotoGridViewModelTests {
 
     @Test func shiftClickWithNoAnchorFallsToPlainClick() {
         let mock = MockPhotoLibraryService()
-        let viewModel = PhotoGridViewModel(service: mock)
+        let viewModel = PhotoGridViewModel(service: mock, defaults: makeTestDefaults())
 
         // No prior click, so lastClickedIdentifier is nil
         viewModel.handleThumbnailClick(identifier: "item-1", modifiers: .shift)
@@ -505,7 +509,7 @@ struct PhotoGridViewModelTests {
 
     @Test func shiftClickWithAnchorNotInFilteredFallsToPlainClick() {
         let mock = MockPhotoLibraryService()
-        let viewModel = PhotoGridViewModel(service: mock)
+        let viewModel = PhotoGridViewModel(service: mock, defaults: makeTestDefaults())
 
         // Set anchor via plain click, but filteredAssets is empty (no assets fetched)
         viewModel.handleThumbnailClick(identifier: "item-1", modifiers: [])
@@ -518,7 +522,7 @@ struct PhotoGridViewModelTests {
 
     @Test func clearSelectionResetsState() {
         let mock = MockPhotoLibraryService()
-        let viewModel = PhotoGridViewModel(service: mock)
+        let viewModel = PhotoGridViewModel(service: mock, defaults: makeTestDefaults())
 
         viewModel.handleThumbnailClick(identifier: "item-1", modifiers: [])
         viewModel.clearSelection()
@@ -529,7 +533,7 @@ struct PhotoGridViewModelTests {
 
     @Test func selectAllOnEmptyFilteredAssets() {
         let mock = MockPhotoLibraryService()
-        let viewModel = PhotoGridViewModel(service: mock)
+        let viewModel = PhotoGridViewModel(service: mock, defaults: makeTestDefaults())
 
         viewModel.selectAll()
 
@@ -617,7 +621,7 @@ struct PhotoGridViewModelTests {
 
     @Test func isExportingIsFalseInitially() {
         let mock = MockPhotoLibraryService()
-        let viewModel = PhotoGridViewModel(service: mock)
+        let viewModel = PhotoGridViewModel(service: mock, defaults: makeTestDefaults())
 
         #expect(viewModel.isExporting == false)
         #expect(viewModel.exportProgress == 0)
@@ -627,7 +631,7 @@ struct PhotoGridViewModelTests {
 
     @Test func clearExportResultSetsNil() {
         let mock = MockPhotoLibraryService()
-        let viewModel = PhotoGridViewModel(service: mock)
+        let viewModel = PhotoGridViewModel(service: mock, defaults: makeTestDefaults())
 
         // Manually trigger an export with no selection to produce a result
         // then clear it
@@ -646,7 +650,7 @@ struct PhotoGridViewModelTests {
 
     @Test func exportWithNoSelectionCompletesImmediately() async {
         let mock = MockPhotoLibraryService()
-        let viewModel = PhotoGridViewModel(service: mock)
+        let viewModel = PhotoGridViewModel(service: mock, defaults: makeTestDefaults())
 
         // No assets selected
         await viewModel.exportAssets(to: URL(fileURLWithPath: "/tmp"))
@@ -659,7 +663,7 @@ struct PhotoGridViewModelTests {
 
     @Test func fullscreenIsInactiveInitially() {
         let mock = MockPhotoLibraryService()
-        let viewModel = PhotoGridViewModel(service: mock)
+        let viewModel = PhotoGridViewModel(service: mock, defaults: makeTestDefaults())
 
         #expect(viewModel.fullscreenAssetIdentifier == nil)
         #expect(viewModel.fullscreenImage == nil)
@@ -669,7 +673,7 @@ struct PhotoGridViewModelTests {
 
     @Test func openFullscreenSetsIdentifierAndLoading() {
         let mock = MockPhotoLibraryService()
-        let viewModel = PhotoGridViewModel(service: mock)
+        let viewModel = PhotoGridViewModel(service: mock, defaults: makeTestDefaults())
 
         viewModel.openFullscreen(identifier: "photo-1")
 
@@ -681,7 +685,7 @@ struct PhotoGridViewModelTests {
 
     @Test func closeFullscreenClearsState() {
         let mock = MockPhotoLibraryService()
-        let viewModel = PhotoGridViewModel(service: mock)
+        let viewModel = PhotoGridViewModel(service: mock, defaults: makeTestDefaults())
 
         viewModel.openFullscreen(identifier: "photo-1")
         viewModel.closeFullscreen()
@@ -694,7 +698,7 @@ struct PhotoGridViewModelTests {
 
     @Test func openFullscreenClearsPreviousImage() {
         let mock = MockPhotoLibraryService()
-        let viewModel = PhotoGridViewModel(service: mock)
+        let viewModel = PhotoGridViewModel(service: mock, defaults: makeTestDefaults())
 
         viewModel.openFullscreen(identifier: "photo-1")
         // Simulate that an image was loaded
@@ -819,7 +823,7 @@ struct PhotoGridViewModelTests {
 
     @Test func setAssetsForTestingSetsAssetsAndFilteredAssets() {
         let mock = MockPhotoLibraryService()
-        let viewModel = PhotoGridViewModel(service: mock)
+        let viewModel = PhotoGridViewModel(service: mock, defaults: makeTestDefaults())
 
         let testAssets = [
             PhotoAsset(id: "p1", creationDate: nil, isVideo: false, duration: 0, pixelWidth: 100, pixelHeight: 100),
@@ -833,7 +837,7 @@ struct PhotoGridViewModelTests {
 
     @Test func filterPhotosOnlyExcludesVideos() {
         let mock = MockPhotoLibraryService()
-        let viewModel = PhotoGridViewModel(service: mock)
+        let viewModel = PhotoGridViewModel(service: mock, defaults: makeTestDefaults())
 
         let testAssets = [
             PhotoAsset(id: "p1", creationDate: nil, isVideo: false, duration: 0, pixelWidth: 100, pixelHeight: 100),
@@ -849,7 +853,7 @@ struct PhotoGridViewModelTests {
 
     @Test func filterVideosOnlyExcludesPhotos() {
         let mock = MockPhotoLibraryService()
-        let viewModel = PhotoGridViewModel(service: mock)
+        let viewModel = PhotoGridViewModel(service: mock, defaults: makeTestDefaults())
 
         let testAssets = [
             PhotoAsset(id: "p1", creationDate: nil, isVideo: false, duration: 0, pixelWidth: 100, pixelHeight: 100),
@@ -865,7 +869,7 @@ struct PhotoGridViewModelTests {
 
     @Test func photoAndVideoCountsUseFilteredAssets() {
         let mock = MockPhotoLibraryService()
-        let viewModel = PhotoGridViewModel(service: mock)
+        let viewModel = PhotoGridViewModel(service: mock, defaults: makeTestDefaults())
 
         let testAssets = [
             PhotoAsset(id: "p1", creationDate: nil, isVideo: false, duration: 0, pixelWidth: 100, pixelHeight: 100),
@@ -880,7 +884,7 @@ struct PhotoGridViewModelTests {
 
     @Test func selectAllUsesPhotoAssetIds() {
         let mock = MockPhotoLibraryService()
-        let viewModel = PhotoGridViewModel(service: mock)
+        let viewModel = PhotoGridViewModel(service: mock, defaults: makeTestDefaults())
 
         let testAssets = [
             PhotoAsset(id: "a", creationDate: nil, isVideo: false, duration: 0, pixelWidth: 100, pixelHeight: 100),
@@ -894,7 +898,7 @@ struct PhotoGridViewModelTests {
 
     @Test func selectedAssetsReturnsPhotoAssets() {
         let mock = MockPhotoLibraryService()
-        let viewModel = PhotoGridViewModel(service: mock)
+        let viewModel = PhotoGridViewModel(service: mock, defaults: makeTestDefaults())
 
         let testAssets = [
             PhotoAsset(id: "a", creationDate: nil, isVideo: false, duration: 0, pixelWidth: 100, pixelHeight: 100),
@@ -941,14 +945,14 @@ struct PhotoGridViewModelTests {
 
     @Test func isDeletingIsFalseInitially() {
         let mock = MockPhotoLibraryService()
-        let viewModel = PhotoGridViewModel(service: mock)
+        let viewModel = PhotoGridViewModel(service: mock, defaults: makeTestDefaults())
 
         #expect(viewModel.isDeleting == false)
     }
 
     @Test func deleteTitleReflectsSelectedAssets() {
         let mock = MockPhotoLibraryService()
-        let viewModel = PhotoGridViewModel(service: mock)
+        let viewModel = PhotoGridViewModel(service: mock, defaults: makeTestDefaults())
 
         let testAssets = [
             PhotoAsset(id: "p1", creationDate: nil, isVideo: false, duration: 0, pixelWidth: 100, pixelHeight: 100),
@@ -964,7 +968,7 @@ struct PhotoGridViewModelTests {
 
     @Test func deleteAssetsCallsServiceForUnselectedItem() async {
         let mock = MockPhotoLibraryService()
-        let viewModel = PhotoGridViewModel(service: mock)
+        let viewModel = PhotoGridViewModel(service: mock, defaults: makeTestDefaults())
 
         let testAssets = [
             PhotoAsset(id: "p1", creationDate: nil, isVideo: false, duration: 0, pixelWidth: 100, pixelHeight: 100),
@@ -984,7 +988,7 @@ struct PhotoGridViewModelTests {
 
     @Test func deleteAssetsDeletesAllSelectedItems() async {
         let mock = MockPhotoLibraryService()
-        let viewModel = PhotoGridViewModel(service: mock)
+        let viewModel = PhotoGridViewModel(service: mock, defaults: makeTestDefaults())
 
         let testAssets = [
             PhotoAsset(id: "p1", creationDate: nil, isVideo: false, duration: 0, pixelWidth: 100, pixelHeight: 100),
@@ -1007,7 +1011,7 @@ struct PhotoGridViewModelTests {
 
     @Test func deleteAssetsClearsLastClickedWhenDeleted() async {
         let mock = MockPhotoLibraryService()
-        let viewModel = PhotoGridViewModel(service: mock)
+        let viewModel = PhotoGridViewModel(service: mock, defaults: makeTestDefaults())
 
         let testAssets = [
             PhotoAsset(id: "p1", creationDate: nil, isVideo: false, duration: 0, pixelWidth: 100, pixelHeight: 100),
@@ -1025,7 +1029,7 @@ struct PhotoGridViewModelTests {
 
     @Test func deleteAssetsPreservesLastClickedWhenNotDeleted() async {
         let mock = MockPhotoLibraryService()
-        let viewModel = PhotoGridViewModel(service: mock)
+        let viewModel = PhotoGridViewModel(service: mock, defaults: makeTestDefaults())
 
         let testAssets = [
             PhotoAsset(id: "p1", creationDate: nil, isVideo: false, duration: 0, pixelWidth: 100, pixelHeight: 100),
@@ -1048,7 +1052,7 @@ struct PhotoGridViewModelTests {
 
     @Test func deleteAssetsUpdatesFilteredAssets() async {
         let mock = MockPhotoLibraryService()
-        let viewModel = PhotoGridViewModel(service: mock)
+        let viewModel = PhotoGridViewModel(service: mock, defaults: makeTestDefaults())
 
         let testAssets = [
             PhotoAsset(id: "p1", creationDate: nil, isVideo: false, duration: 0, pixelWidth: 100, pixelHeight: 100),
@@ -1067,7 +1071,7 @@ struct PhotoGridViewModelTests {
     @Test func deleteAssetsHandlesServiceError() async {
         let mock = MockPhotoLibraryService()
         mock.deleteAssetsShouldThrow = true
-        let viewModel = PhotoGridViewModel(service: mock)
+        let viewModel = PhotoGridViewModel(service: mock, defaults: makeTestDefaults())
 
         let testAssets = [
             PhotoAsset(id: "p1", creationDate: nil, isVideo: false, duration: 0, pixelWidth: 100, pixelHeight: 100),
@@ -1084,7 +1088,7 @@ struct PhotoGridViewModelTests {
 
     @Test func deleteAssetsRemovesSelectionForDeletedItems() async {
         let mock = MockPhotoLibraryService()
-        let viewModel = PhotoGridViewModel(service: mock)
+        let viewModel = PhotoGridViewModel(service: mock, defaults: makeTestDefaults())
 
         let testAssets = [
             PhotoAsset(id: "p1", creationDate: nil, isVideo: false, duration: 0, pixelWidth: 100, pixelHeight: 100),
@@ -1109,7 +1113,7 @@ struct PhotoGridViewModelTests {
 
     @Test func deleteAssetsAutoSelectsUnselectedItem() async {
         let mock = MockPhotoLibraryService()
-        let viewModel = PhotoGridViewModel(service: mock)
+        let viewModel = PhotoGridViewModel(service: mock, defaults: makeTestDefaults())
 
         let testAssets = [
             PhotoAsset(id: "A", creationDate: nil, isVideo: false, duration: 0, pixelWidth: 100, pixelHeight: 100),
@@ -1191,5 +1195,65 @@ struct PhotoGridViewModelTests {
         #expect(viewModel.mediaFilter == .all)
         #expect(viewModel.sortOption == .recordTime)
         #expect(viewModel.sortOrder == .descending)
+    }
+
+    // MARK: - Reindex Library
+
+    @Test func reindexLibraryInitialState() {
+        let mock = MockPhotoLibraryService()
+        let viewModel = PhotoGridViewModel(service: mock, defaults: makeTestDefaults())
+
+        #expect(viewModel.isReindexing == false)
+        #expect(viewModel.reindexResult == nil)
+    }
+
+    @Test func reindexLibraryRemovesStaleAndPopulatesResult() async throws {
+        let mock = MockPhotoLibraryService()
+        mock.stubbedAuthorizationStatus = .authorized
+        mock.stubbedFetchResult = PHFetchResult<PHAsset>()
+
+        let viewModel = PhotoGridViewModel(service: mock, defaults: makeTestDefaults())
+
+        let schema = Schema(versionedSchema: MediaMetadataSchemaV1.self)
+        let config = ModelConfiguration(isStoredInMemoryOnly: true)
+        let container = try ModelContainer(for: schema, configurations: [config])
+        viewModel.configure(modelContainer: container)
+
+        // Insert a stale record that doesn't correspond to any current asset
+        let context = ModelContext(container)
+        let staleMetadata = MediaMetadata(
+            localIdentifier: "stale-asset-id",
+            fileSize: 500,
+            creationDate: nil,
+            duration: 0,
+            latitude: nil,
+            longitude: nil
+        )
+        context.insert(staleMetadata)
+        try context.save()
+
+        await viewModel.reindexLibrary()
+
+        #expect(viewModel.isReindexing == false)
+        #expect(viewModel.reindexResult != nil)
+        #expect(viewModel.reindexResult?.removed == 1)
+        #expect(viewModel.reindexResult?.added == 0)
+    }
+
+    @Test func clearReindexResult() {
+        let mock = MockPhotoLibraryService()
+        let viewModel = PhotoGridViewModel(service: mock, defaults: makeTestDefaults())
+
+        viewModel.clearReindexResult()
+        #expect(viewModel.reindexResult == nil)
+    }
+
+    @Test func reindexResultEquatable() {
+        let a = ReindexResult(removed: 3, added: 5)
+        let b = ReindexResult(removed: 3, added: 5)
+        let c = ReindexResult(removed: 1, added: 2)
+
+        #expect(a == b)
+        #expect(a != c)
     }
 }
