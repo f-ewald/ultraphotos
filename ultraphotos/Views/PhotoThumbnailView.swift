@@ -39,6 +39,15 @@ struct PhotoThumbnailView: View {
             if showMetadata {
                 VStack {
                     HStack {
+                        if viewModel.metadataCache[asset.id]?.isFavorite == true {
+                            Image(systemName: "star.fill")
+                                .font(.caption2)
+                                .fontWeight(.semibold)
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, 4)
+                                .padding(.vertical, 2)
+                                .background(.black.opacity(0.7), in: RoundedRectangle(cornerRadius: 4))
+                        }
                         Spacer()
                         if let date = asset.creationDate {
                             Text(date.formatted(.dateTime.month(.twoDigits).day(.twoDigits).year(.defaultDigits)))
@@ -98,6 +107,15 @@ struct PhotoThumbnailView: View {
             Button("Open in Apple Photos") {
                 viewModel.handleThumbnailClick(identifier: asset.id, modifiers: [])
                 viewModel.openInPhotos(identifier: asset.id)
+            }
+            Button {
+                viewModel.toggleFavorite(for: asset.id)
+            } label: {
+                if viewModel.metadataCache[asset.id]?.isFavorite == true {
+                    Label("Unfavorite", systemImage: "star.fill")
+                } else {
+                    Label("Favorite", systemImage: "star")
+                }
             }
             Divider()
             Button(role: .destructive) {

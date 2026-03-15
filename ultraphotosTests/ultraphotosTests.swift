@@ -8,6 +8,7 @@
 import Testing
 import Photos
 import AppKit
+import AVFoundation
 import SwiftData
 @testable import ultraphotos
 
@@ -67,6 +68,10 @@ final class MockPhotoLibraryService: PhotoLibraryServing {
         if deleteAssetsShouldThrow {
             throw NSError(domain: "MockError", code: 1, userInfo: [NSLocalizedDescriptionKey: "Mock delete failure"])
         }
+    }
+
+    func requestPlayerItem(for asset: PHAsset, options: PHVideoRequestOptions?) async -> AVPlayerItem? {
+        nil
     }
 }
 
@@ -1255,5 +1260,50 @@ struct PhotoGridViewModelTests {
 
         #expect(a == b)
         #expect(a != c)
+    }
+
+    // MARK: - Toggle Favorite
+
+    @Test func toggleFavoriteFlipsIsFavorite() throws {
+        let mock = MockPhotoLibraryService()
+        let viewModel = PhotoGridViewModel(service: mock, defaults: makeTestDefaults())
+
+        let schema = Schema(versionedSchema: MediaMetadataSchemaV1.self)
+        let config = ModelConfiguration(isStoredInMemoryOnly: true)
+        let container = try ModelContainer(for: schema, configurations: [config])
+        viewModel.configure(modelContainer: container)
+
+        let context = ModelContext(container)
+        let metadata = MediaMetadata(
+            localIdentifier: "fav-1",
+            fileSize: 1000,
+            creationDate: nil,
+            duration: 0,
+            latitude: nil,
+            longitude: nil
+        )
+        context.insert(metadata)
+        try context.save()
+
+        // Populate the cache so we can observe changes
+        viewModel.toggleFavorite(for: "fav-1")
+        #expect(viewModel.metadataCache["fav-1"]?.isFavorite == true)
+
+        viewModel.toggleFavorite(for: "fav-1")
+        #expect(viewModel.metadataCache["fav-1"]?.isFavorite == false)
+    }
+
+    @Test func toggleFavoriteNoOpForMissingIdentifier() throws {
+        let mock = MockPhotoLibraryService()
+        let viewModel = PhotoGridViewModel(service: mock, defaults: makeTestDefaults())
+
+        let schema = Schema(versionedSchema: MediaMetadataSchemaV1.self)
+        let config = ModelConfiguration(isStoredInMemoryOnly: true)
+        let container = try ModelContainer(for: schema, configurations: [config])
+        viewModel.configure(modelContainer: container)
+
+        // Should not crash
+        viewModel.toggleFavorite(for: "nonexistent")
+        #expect(viewModel.metadataCache["nonexistent"] == nil)
     }
 }

@@ -7,6 +7,8 @@
 
 import Photos
 import AppKit
+import AVFoundation
+import AVKit
 
 protocol PhotoLibraryServing: Sendable {
     func authorizationStatus(for accessLevel: PHAccessLevel) -> PHAuthorizationStatus
@@ -20,6 +22,7 @@ protocol PhotoLibraryServing: Sendable {
     ) async -> NSImage?
     nonisolated func writeAssetResource(_ resource: PHAssetResource, toFileURL url: URL, options: PHAssetResourceRequestOptions?) async throws
     func deleteAssets(withIdentifiers identifiers: [String]) async throws
+    func requestPlayerItem(for asset: PHAsset, options: PHVideoRequestOptions?) async -> AVPlayerItem?
 }
 
 final class PhotoLibraryService: PhotoLibraryServing {
@@ -81,6 +84,18 @@ final class PhotoLibraryService: PhotoLibraryServing {
         guard !assets.isEmpty else { return }
         try await PHPhotoLibrary.shared().performChanges {
             PHAssetChangeRequest.deleteAssets(assets as NSFastEnumeration)
+        }
+    }
+
+    func requestPlayerItem(for asset: PHAsset, options: PHVideoRequestOptions?) async -> AVPlayerItem? {
+        await withCheckedContinuation { continuation in
+            let requestOptions = options ?? PHVideoRequestOptions()
+            requestOptions.isNetworkAccessAllowed = true
+            requestOptions.deliveryMode = .highQualityFormat
+
+            imageManager.requestPlayerItem(forVideo: asset, options: requestOptions) { playerItem, _ in
+                continuation.resume(returning: playerItem)
+            }
         }
     }
 }

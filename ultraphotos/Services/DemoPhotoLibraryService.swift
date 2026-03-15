@@ -9,6 +9,7 @@
 
 import Photos
 import AppKit
+import AVFoundation
 
 final class DemoPhotoLibraryService: PhotoLibraryServing {
     func authorizationStatus(for accessLevel: PHAccessLevel) -> PHAuthorizationStatus {
@@ -38,6 +39,10 @@ final class DemoPhotoLibraryService: PhotoLibraryServing {
 
     func deleteAssets(withIdentifiers identifiers: [String]) async throws {
         // No-op in demo mode
+    }
+
+    func requestPlayerItem(for asset: PHAsset, options: PHVideoRequestOptions?) async -> AVPlayerItem? {
+        nil
     }
 }
 

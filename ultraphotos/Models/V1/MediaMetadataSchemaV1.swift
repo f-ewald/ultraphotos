@@ -23,6 +23,7 @@ enum MediaMetadataSchemaV1: VersionedSchema {
         var duration: Double
         var latitude: Double?
         var longitude: Double?
+        var isFavorite: Bool = false
 
         init(
             localIdentifier: String,
@@ -30,7 +31,8 @@ enum MediaMetadataSchemaV1: VersionedSchema {
             creationDate: Date?,
             duration: Double,
             latitude: Double?,
-            longitude: Double?
+            longitude: Double?,
+            isFavorite: Bool = false
         ) {
             self.localIdentifier = localIdentifier
             self.fileSize = fileSize
@@ -38,6 +40,7 @@ enum MediaMetadataSchemaV1: VersionedSchema {
             self.duration = duration
             self.latitude = latitude
             self.longitude = longitude
+            self.isFavorite = isFavorite
         }
     }
 }

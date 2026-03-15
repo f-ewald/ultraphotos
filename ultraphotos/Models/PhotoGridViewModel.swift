@@ -7,6 +7,7 @@
 
 import Photos
 import AppKit
+import AVKit
 import Observation
 import SwiftData
 
@@ -144,12 +145,19 @@ final class PhotoGridViewModel {
     private(set) var fullscreenAssetIdentifier: String?
     private(set) var fullscreenImage: NSImage?
     private(set) var isLoadingFullscreenImage = false
+    private(set) var fullscreenPlayerItem: AVPlayerItem?
+    private(set) var fullscreenPlayer: AVPlayer?
     private(set) var isDeleting = false
     private(set) var isReindexing = false
     private(set) var reindexResult: ReindexResult?
 
     var isFullscreenActive: Bool {
         fullscreenAssetIdentifier != nil
+    }
+
+    var isFullscreenVideo: Bool {
+        guard let id = fullscreenAssetIdentifier else { return false }
+        return filteredAssets.first { $0.id == id }?.isVideo ?? false
     }
 
     private var modelContainer: ModelContainer?
@@ -528,6 +536,19 @@ final class PhotoGridViewModel {
         #endif
     }
 
+    func toggleFavorite(for identifier: String) {
+        guard let container = modelContainer else { return }
+        let context = ModelContext(container)
+        var descriptor = FetchDescriptor<MediaMetadata>(
+            predicate: #Predicate { $0.localIdentifier == identifier }
+        )
+        descriptor.fetchLimit = 1
+        guard let record = try? context.fetch(descriptor).first else { return }
+        record.isFavorite.toggle()
+        try? context.save()
+        metadataCache[identifier] = record
+    }
+
     func openInPhotos(identifier: String) {
         let uuid = identifier.components(separatedBy: "/").first ?? identifier
         if let url = URL(string: "photos-navigation://show-asset?localIdentifier=\(uuid)") {
@@ -578,12 +599,18 @@ final class PhotoGridViewModel {
     }
 
     func openFullscreen(identifier: String) {
+        fullscreenPlayer?.pause()
+        fullscreenPlayer = nil
+        fullscreenPlayerItem = nil
         fullscreenAssetIdentifier = identifier
         fullscreenImage = nil
         isLoadingFullscreenImage = true
     }
 
     func closeFullscreen() {
+        fullscreenPlayer?.pause()
+        fullscreenPlayer = nil
+        fullscreenPlayerItem = nil
         fullscreenAssetIdentifier = nil
         fullscreenImage = nil
         isLoadingFullscreenImage = false
@@ -592,6 +619,11 @@ final class PhotoGridViewModel {
     func loadFullscreenImage() async {
         guard let identifier = fullscreenAssetIdentifier,
               let asset = filteredAssets.first(where: { $0.id == identifier }) else {
+            isLoadingFullscreenImage = false
+            return
+        }
+
+        if asset.isVideo {
             isLoadingFullscreenImage = false
             return
         }
@@ -628,6 +660,28 @@ final class PhotoGridViewModel {
         guard fullscreenAssetIdentifier == identifier else { return }
         fullscreenImage = image
         isLoadingFullscreenImage = false
+        #endif
+    }
+
+    func loadFullscreenVideo() async {
+        guard let identifier = fullscreenAssetIdentifier,
+              let asset = filteredAssets.first(where: { $0.id == identifier }),
+              asset.isVideo else {
+            return
+        }
+
+        #if SCREENSHOTS
+        // No video playback in demo mode
+        return
+        #else
+        guard let phAsset = phAssetsByIdentifier[identifier] else { return }
+
+        let playerItem = await service.requestPlayerItem(for: phAsset, options: nil)
+        guard fullscreenAssetIdentifier == identifier else { return }
+        fullscreenPlayerItem = playerItem
+        if let playerItem {
+            fullscreenPlayer = AVPlayer(playerItem: playerItem)
+        }
         #endif
     }
 

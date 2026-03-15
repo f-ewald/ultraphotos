@@ -41,7 +41,7 @@ struct ContentView: View {
     @AppStorage(PreferenceKeys.thumbnailSize) private var thumbnailSize: Double = 150
 
     private var columns: [GridItem] {
-        [GridItem(.adaptive(minimum: thumbnailSize, maximum: thumbnailSize + 50))]
+        [GridItem(.adaptive(minimum: thumbnailSize, maximum: thumbnailSize + 50), spacing: 8)]
     }
 
     var body: some View {
@@ -247,12 +247,12 @@ struct ContentView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .padding(.top, 100)
             } else {
-                LazyVGrid(columns: columns, spacing: 4) {
+                LazyVGrid(columns: columns, spacing: 8) {
                     ForEach(viewModel.filteredAssets) { asset in
                         PhotoThumbnailView(asset: asset, viewModel: viewModel, size: thumbnailSize)
                     }
                 }
-                .padding(4)
+                .padding(8)
 
                 VStack(spacing: 4) {
                     Image(nsImage: NSApp.applicationIconImage)

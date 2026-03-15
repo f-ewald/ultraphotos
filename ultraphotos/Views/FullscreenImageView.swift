@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import AVKit
 
 struct FullscreenImageView: View {
     @Bindable var viewModel: PhotoGridViewModel
@@ -17,7 +18,14 @@ struct FullscreenImageView: View {
         ZStack {
             Color(nsColor: .windowBackgroundColor).ignoresSafeArea()
 
-            if let image = viewModel.fullscreenImage {
+            if viewModel.isFullscreenVideo {
+                if let player = viewModel.fullscreenPlayer {
+                    VideoPlayerView(player: player)
+                } else {
+                    ProgressView()
+                        .controlSize(.large)
+                }
+            } else if let image = viewModel.fullscreenImage {
                 Image(nsImage: image)
                     .resizable()
                     .aspectRatio(contentMode: .fit)
@@ -102,7 +110,11 @@ struct FullscreenImageView: View {
             return .handled
         }
         .task(id: viewModel.fullscreenAssetIdentifier) {
-            await viewModel.loadFullscreenImage()
+            if viewModel.isFullscreenVideo {
+                await viewModel.loadFullscreenVideo()
+            } else {
+                await viewModel.loadFullscreenImage()
+            }
         }
     }
 }

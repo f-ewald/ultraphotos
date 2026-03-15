@@ -1,3 +1,9 @@
+# 1.1.0
+
+* Added "favorite" pictures
+* Increased spacing between pictures
+* Added video player in full screen view
+
 # 1.0.2
 
 * Added option to reindex library
